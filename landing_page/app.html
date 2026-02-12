@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AlpenSign | Mobile HSM</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #0a0e14; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; color: white; }
+        .card { background: #1c222d; padding: 2rem; border-radius: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); width: 90%; max-width: 400px; border: 1px solid #2d3544; text-align: center; position: relative; overflow: hidden; }
+        .payment-details { background: #131924; border-radius: 16px; padding: 20px; margin: 20px 0; border-left: 4px solid #ffcc00; text-align: left; }
+        .label { font-size: 0.7rem; color: #5c667a; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+        .value { font-size: 1.2rem; margin-bottom: 12px; font-weight: 600; }
+        .iban { font-family: monospace; color: #ffcc00; font-size: 0.95rem; }
+        
+        button { width: 100%; padding: 16px; border-radius: 12px; font-size: 1rem; font-weight: bold; cursor: pointer; border: none; transition: 0.3s; margin-bottom: 10px; }
+        .btn-sign { background: linear-gradient(135deg, #ffcc00 0%, #ff9900 100%); color: #000; }
+        .btn-verify { background: #007AFF; color: white; display: none; }
+        .btn-onboard { background: #2d3544; color: #fff; font-size: 0.8rem; }
+        
+        #status { margin-top: 20px; font-size: 0.85rem; color: #8a94a6; min-height: 40px; }
+        .hidden { display: none !important; }
+        .hsm-badge { font-size: 0.6rem; border: 1px solid #00ff88; color: #00ff88; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; }
+
+        /* WebView Shield */
+        #webviewShield { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            background: #0a0e14; display: flex; flex-direction: column; 
+            justify-content: center; align-items: center; z-index: 1000; padding: 30px; box-sizing: border-box;
+        }
+
+        #techConsole { margin-top: 20px; text-align: left; background: #000; padding: 15px; border-radius: 8px; border: 1px solid #333; font-family: 'Courier New', monospace; font-size: 0.7rem; }
+        .console-label { color: #5c667a; text-transform: uppercase; margin-top: 8px; font-size: 0.6rem; }
+        .console-val { color: #ffcc00; word-break: break-all; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div id="webviewShield" class="hidden">
+        <div style="font-size: 3rem; margin-bottom: 10px;">🛡️</div>
+        <h3 id="shieldTitle" style="color: #ffcc00;">Wallet Detected</h3>
+        <p style="font-size: 0.85rem; color: #8a94a6; line-height: 1.5;">AlpenSign requires a standalone browser for <b>Seeker Vault</b> access.</p>
+        <div style="background: #1c222d; padding: 12px; border-radius: 8px; width: 100%; margin-top: 10px;">
+            <p style="font-size: 0.75rem; color: #fff; margin: 0;">👉 Use <b>Chrome</b> or <b>Brave</b></p>
+        </div>
+        <button onclick="document.getElementById('webviewShield').classList.add('hidden')" style="background:none; color:#5c667a; font-size: 0.7rem; margin-top: 20px; border: 1px solid #333;">Dismiss (Debug Mode)</button>
+    </div>
+
+    <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <span style="font-weight: bold; letter-spacing: 1px;">ALPENSIGN</span>
+        <span id="hsmBadge" class="hsm-badge hidden">HSM Active</span>
+    </div>
+
+    <div id="onboardView">
+        <h3>HSM Initialization</h3>
+        <p style="color: #8a94a6; font-size: 0.9rem; margin-bottom: 20px;">Pair this Seeker with your Bank Account to enable Hardware-Bound signatures.</p>
+        <button class="btn-onboard" id="onboardBtn">Pair Seeker HSM</button>
+    </div>
+
+    <div id="signView" class="hidden">
+        <div class="payment-details">
+            <div class="label">Recipient</div>
+            <div class="value">ABC GmbH</div>
+            <div class="label">Amount</div>
+            <div class="value">CHF 10,500.00</div>
+        </div>
+        <button class="btn-sign" id="signBtn">Sign with Fingerprint</button>
+        <button class="btn-verify" id="verifyBtn">Verify Cryptographic Proof</button>
+    </div>
+
+    <div id="status">Waiting...</div>
+
+    <div id="techConsole">
+        <div class="console-label">User Agent (Debug)</div>
+        <div id="uaDebug" class="console-val" style="font-size: 0.6rem; color: #8a94a6;"></div>
+        
+        <div id="techContent" class="hidden">
+            <div class="console-label">AAGUID</div>
+            <div id="aaguidValue" class="console-val"></div>
+            <div class="console-label">SHA-256 Manifest</div>
+            <div id="hashValue" class="console-val"></div>
+            <div class="console-label">ECDSA Signature</div>
+            <div id="sigValue" class="console-val" style="color:white"></div>
+        </div>
+    </div>
+    
+    <div id="resetArea" class="hidden" style="margin-top: 20px;">
+        <a href="#" id="resetBtn" style="color: #5c667a; font-size: 0.7rem;">[ Reset HSM ]</a>
+    </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
