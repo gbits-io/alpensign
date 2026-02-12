@@ -280,12 +280,17 @@
 
   /* ---- Problem / Why ---- */
   .section-label {
+    display: inline-block;
     font-size: 0.72rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.18em;
+    letter-spacing: 0.16em;
     color: var(--accent);
-    margin-bottom: 1.2rem;
+    background: var(--accent-dim);
+    border: 1px solid var(--border);
+    padding: 0.35rem 1rem;
+    border-radius: 100px;
+    margin-bottom: 1.4rem;
   }
 
   .section-title {
@@ -384,6 +389,7 @@
     width: 2px;
     background: linear-gradient(to bottom, var(--accent), var(--alpine-blue), var(--accent));
     opacity: 0.25;
+    z-index: 1;
   }
 
   .trust-step {
@@ -1070,8 +1076,8 @@
 <section class="hero">
   <div class="hero-badge">Solana Seeker Hackathon Monolith · Q1 2026</div>
   <h1>The Solana Seeker is the first phone that can <em>seal</em> a bank payment on a public ledger.</h1>
-  <p class="hero-sub">
-    <em>AlpenSign</em> turns the Solana Seeker into a transaction sealing device for banks.
+  <p class="hero-sub" style="animation-delay: 0.25s;"">
+    <strong>Core Idea: AlpenSign</strong> turns the Solana Seeker into a transaction sealing device for banks.
     Independent, immutable, cryptographic proof of payment authorization — on a ledger
     no single party controls.
   </p>
@@ -1381,6 +1387,39 @@
       <h3>Claude Code</h3>
       <div class="role">AI Engineering Partner</div>
       <p class="bio">Anthropic Claude and Google Gemini</p>
+    </div>
+  </div>
+</section>
+
+<section id="regulatory">
+  <div class="reveal">
+    <div class="section-label">Regulatory Compliance &amp; Alignment</div>
+    <h2 class="section-title">Designed with European regulation in mind.</h2>
+    <p class="section-desc">
+      AlpenSign's architecture aligns with existing and emerging regulatory frameworks for electronic signatures, data protection, and financial services compliance.
+    </p>
+  </div>
+
+  <div class="problem-grid" style="margin-top: 3.5rem;">
+    <div class="problem-card reveal">
+      <span class="problem-icon">✍️</span>
+      <h3>Comparable to Qualified Electronic Signatures</h3>
+      <p>AlpenSign seals combine biometric confirmation, hardware-isolated key storage, and a secure element — the same building blocks underlying QES under the EU's eIDAS regulation. While not a certified QES provider, the cryptographic guarantees are structurally equivalent: identity-bound, non-repudiable, and tamper-evident.</p>
+    </div>
+    <div class="problem-card reveal">
+      <span class="problem-icon">🔒</span>
+      <h3>GDPR-Aligned by Design</h3>
+      <p>No personal data is stored on-chain. Transaction seals contain only cryptographic hashes — no names, account numbers, or payment details touch the Solana ledger. The biometric confirmation stays entirely on-device within the Seeker's secure element, never transmitted or stored externally.</p>
+    </div>
+    <div class="problem-card reveal">
+      <span class="problem-icon">📜</span>
+      <h3>Immutable Audit Trail</h3>
+      <p>Every seal creates a timestamped, cryptographically signed record on Solana's public ledger — an independent audit trail that neither the bank nor the client can alter after the fact. This supports regulatory requirements for record-keeping under FINMA, MiFID II, and PSD2 strong customer authentication (SCA).</p>
+    </div>
+    <div class="problem-card reveal">
+      <span class="problem-icon">🇨🇭</span>
+      <h3>Swiss &amp; EU Framework Compatibility</h3>
+      <p>AlpenSign's two-channel authorization model aligns with PSD2/SCA requirements for independent authentication. The architecture is compatible with Switzerland's ZertES (Federal Act on Electronic Signatures) and the broader European eIDAS trust services framework for advanced electronic signatures.</p>
     </div>
   </div>
 </section>
