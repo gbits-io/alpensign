@@ -34,7 +34,8 @@
     font-family: 'Outfit', sans-serif;
     background: var(--bg-primary);
     color: var(--text-primary);
-    line-height: 1.65;
+    font-size: 1.05rem;
+    line-height: 1.7;
     overflow-x: hidden;
   }
 
@@ -258,11 +259,12 @@
   }
 
   .hero-stat-label {
-    font-size: 0.75rem;
-    color: var(--text-dim);
+    font-size: 0.78rem;
+    color: var(--text-primary);
     text-transform: uppercase;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.1em;
     margin-top: 0.3rem;
+    font-weight: 400;
   }
 
   @keyframes fadeInUp {
@@ -298,7 +300,7 @@
 
   .problem-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: 1.5rem;
     margin-top: 4rem;
   }
@@ -348,8 +350,8 @@
 
   .problem-card p {
     color: var(--text-secondary);
-    font-size: 0.9rem;
-    line-height: 1.7;
+    font-size: 0.95rem;
+    line-height: 1.75;
     font-weight: 300;
   }
 
@@ -408,9 +410,9 @@
 
   .trust-step-content p {
     color: var(--text-secondary);
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     font-weight: 300;
-    line-height: 1.7;
+    line-height: 1.75;
     max-width: 550px;
   }
 
@@ -431,13 +433,22 @@
   /* ---- App Screenshots ---- */
 
   .screenshot-img {
-  max-width: 100%;  /* Prevents the image from being wider than its parent div */
-  height: auto;     /* Keeps the proportions correct so it doesn't look squished */
-  display: block;   /* Removes the tiny gap often found under images */
-  
-  /* Optional: Set a specific maximum width if 100% is still too big */
-  width: 400px; 
-}
+    max-width: 100%;
+    max-height: 100%;
+    height: auto;
+    display: block;
+    object-fit: contain;
+    border-radius: 16px;
+  }
+
+  .screenshot-placeholder img {
+    max-width: 100%;
+    max-height: 440px;
+    height: auto;
+    display: block;
+    object-fit: contain;
+    border-radius: 16px;
+  }
 
   .screenshots {
     background: var(--bg-secondary);
@@ -472,8 +483,9 @@
   .screenshot-slider::-webkit-scrollbar { display: none; }
 
   .screenshot-placeholder {
-    min-width: 260px;
-    height: 520px;
+    min-width: 220px;
+    max-width: 240px;
+    height: 440px;
     background: var(--bg-card);
     border: 1px dashed var(--border);
     border-radius: 24px;
@@ -485,6 +497,7 @@
     position: relative;
     overflow: hidden;
     flex-shrink: 0;
+    padding: 0.5rem;
   }
 
   .screenshot-placeholder::before {
@@ -598,9 +611,9 @@
 
   .stack-card p {
     color: var(--text-secondary);
-    font-size: 0.85rem;
+    font-size: 0.92rem;
     font-weight: 300;
-    line-height: 1.65;
+    line-height: 1.7;
   }
 
   /* ---- Comparison ---- */
@@ -675,11 +688,12 @@
   }
 
   .punchline .attribution {
-    margin-top: 1.5rem;
-    font-size: 0.8rem;
-    color: var(--text-dim);
-    letter-spacing: 0.1em;
+    margin-bottom: 1.5rem;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    letter-spacing: 0.12em;
     text-transform: uppercase;
+    font-weight: 700;
   }
 
   /* ---- Team ---- */
@@ -736,10 +750,10 @@
 
   .team-card .bio {
     color: var(--text-secondary);
-    font-size: 0.85rem;
+    font-size: 0.92rem;
     font-weight: 300;
     margin-top: 0.8rem;
-    line-height: 1.6;
+    line-height: 1.65;
   }
 
   /* ---- CTA ---- */
@@ -885,7 +899,35 @@
     .hero-stats { flex-direction: column; gap: 1.5rem; }
     .nav-links a:not(.nav-cta) { display: none; }
     .comparison th, .comparison td { padding: 0.8rem 1rem; font-size: 0.8rem; }
-    .screenshots { padding: 2rem 1.5rem; }
+    .screenshots { padding: 2rem 1rem; }
+
+    /* Smaller buttons on mobile */
+    .hero-actions {
+      flex-wrap: wrap;
+      gap: 0.6rem;
+    }
+    .btn-primary, .btn-secondary {
+      padding: 0.55rem 1rem;
+      font-size: 0.7rem;
+      letter-spacing: 0.03em;
+    }
+    .nav-cta {
+      padding: 0.4rem 0.8rem !important;
+      font-size: 0.65rem !important;
+    }
+
+    /* Smaller screenshots on mobile — phone-sized */
+    .screenshot-placeholder {
+      min-width: 170px;
+      height: 340px;
+      border-radius: 16px;
+    }
+    .screenshot-placeholder img {
+      max-height: 300px;
+    }
+    .screenshot-slider {
+      gap: 0.8rem;
+    }
   }
 
   /* ---- Scroll animations ---- */
@@ -925,7 +967,7 @@
     no single party controls.
   </p>
   <div class="hero-actions">
-    <a href="./videos/alpensign-01.mp4/" target="_blank" rel="noopener" class="btn-primary">Demo Video (tbd)</a>
+    <a href="./videos/alpensign-01.mp4/" target="_blank" rel="noopener" class="btn-primary">Demo Video (DRAFT)</a>
     <a href="./app.html/" target="_blank" rel="noopener" class="btn-primary">AlpenSign App</a>
     <a href="https://github.com/gbits-io/alpensign/" target="_blank" rel="noopener" class="btn-primary">View on GitHub</a>
 
@@ -950,7 +992,7 @@
     </div>
     <div>
       <div class="hero-stat-value">0</div>
-      <div class="hero-stat-label">Trust in Google required</div>
+      <div class="hero-stat-label">Trust in Apple / Google required</div>
     </div>
   </div>
 </section>
@@ -981,7 +1023,12 @@
     <div class="problem-card reveal">
       <span class="problem-icon">📱</span>
       <h3>Weak Authentication Proof</h3>
-      <p>SMS OTP, push notifications, app-based 2FA — all controlled by the bank or dependent on Google's infrastructure. No independent, verifiable trail.</p>
+      <p>SMS OTP, push notifications, app-based 2FA — all controlled by the bank or dependent on Apple and Google infrastructure. No independent, verifiable trail.</p>
+    </div>
+    <div class="problem-card reveal">
+      <span class="problem-icon">⚖️</span>
+      <h3>Burden of Proof Stuck with the Bank</h3>
+      <p>In disputes, banks must prove the client authorized the transaction. With only self-serving logs, that's an uphill battle. AlpenSign's independent cryptographic evidence enables a potential reversal of the burden of proof — the client would need to explain away an immutable, biometric-confirmed seal.</p>
     </div>
   </div>
 </section>
@@ -1026,7 +1073,7 @@
       <div class="trust-step-num">✓</div>
       <div class="trust-step-content">
         <h3>Dispute? Rejected.</h3>
-        <p>Bank checks: Genesis Token (real device) + credential (our client) + seal (biometric confirmed). Independent evidence chain. Client's claim falls apart.</p>
+        <p>Bank checks: Genesis Token (real device) + credential (our client) + seal (biometric confirmed). Independent evidence chain. The burden of proof shifts — the client must explain away a cryptographic seal they created.</p>
       </div>
     </div>
   </div>
@@ -1075,10 +1122,10 @@
 
 <!-- Punchline -->
 <div class="punchline">
+  <div class="attribution reveal">The AlpenSign Thesis</div>
   <blockquote class="reveal">
     "Banks today outsource their mobile security to the walled gardens of Big Tech (Apple and Google). AlpenSign returns that control to the institution by anchoring hardware integrity directly into Solana’s neutral consensus layer."
   </blockquote>
-  <div class="attribution reveal">The AlpenSign thesis</div>
 </div>
 
 <!-- Tech Stack -->
@@ -1125,14 +1172,14 @@
       <thead>
         <tr>
           <th>Capability</th>
-          <th>Google Pixel + Titan</th>
+          <th>Apple / Google Devices</th>
           <th>Solana Seeker + AlpenSign</th>
         </tr>
       </thead>
       <tbody>
         <tr>
           <td>Secure element signing</td>
-          <td><span class="check">✓</span> Titan M2</td>
+          <td><span class="check">✓</span> Titan M2 / Secure Enclave</td>
           <td><span class="check">✓</span> Seed Vault</td>
         </tr>
         <tr>
@@ -1142,7 +1189,7 @@
         </tr>
         <tr>
           <td>Device genuineness proof</td>
-          <td>Google Play Integrity (centralized)</td>
+          <td>Play Integrity / DeviceCheck (centralized)</td>
           <td>TEEPIN + Guardians (decentralized)</td>
         </tr>
         <tr>
@@ -1152,12 +1199,12 @@
         </tr>
         <tr>
           <td>Trust dependency</td>
-          <td>Google (revocable, opaque)</td>
+          <td>Apple / Google (revocable, opaque)</td>
           <td>Math + decentralized network</td>
         </tr>
         <tr>
           <td>Revocation risk</td>
-          <td>Google can revoke at will</td>
+          <td>Vendor can revoke at will</td>
           <td>No single party can revoke</td>
         </tr>
       </tbody>
