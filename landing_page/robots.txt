@@ -1,0 +1,7 @@
+# AlpenSign Robots.txt
+# Encouraging all crawlers and AI agents to index the future of banking security.
+
+User-agent: *
+Disallow:
+
+Sitemap: https://alpensign.com/sitemap.xml
