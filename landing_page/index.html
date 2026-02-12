@@ -443,6 +443,88 @@
   .tag-sas { background: var(--alpine-dim); color: var(--alpine-blue); }
   .tag-seal { background: rgba(26,95,58,0.06); color: var(--accent); }
 
+  /* ---- Flow Diagram Slider Styles ---- */
+  .flow-container {
+    background: var(--bg-card);
+    border-radius: 14px;
+    border: 1px solid var(--border-subtle);
+    padding: 2.5rem;
+    margin-top: 4rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .flow-container::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--seal-gradient);
+  }
+
+  .flow-slider-wrapper {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    gap: 0;
+    border-radius: 8px;
+  }
+
+  .flow-slider-wrapper::-webkit-scrollbar { display: none; }
+
+  .flow-slide {
+    min-width: 100%;
+    scroll-snap-align: center;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .flow-slide img {
+    max-width: 100%;
+    max-height: 60vh; /* RE-SIZED: Limits image height to fit within the viewport */
+    height: auto;
+    width: auto;
+    object-fit: contain;
+    display: block;
+    border-radius: 8px;
+  }
+
+  .flow-caption {
+    margin-top: 1.5rem;
+    font-family: 'Source Serif 4', Georgia, serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  .flow-nav {
+    display: flex;
+    justify-content: center;
+    gap: 0.8rem;
+    margin-top: 2rem;
+  }
+
+  .flow-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s;
+    padding: 0;
+  }
+
+  .flow-dot.active, .flow-dot:hover {
+    background: var(--accent);
+    transform: scale(1.3);
+  }
+
   /* ---- App Screenshots ---- */
   .screenshot-img {
     max-width: 100%;
@@ -655,7 +737,7 @@
     font-weight: 700;
     font-size: 0.7rem;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: 1em;
     color: var(--text-dim);
     background: var(--bg-secondary);
   }
@@ -954,6 +1036,8 @@
     }
 
     .punchline { padding: 4rem 1.5rem; }
+    .flow-container { padding: 1.5rem; }
+    .flow-slide img { max-height: 50vh; }
   }
 
   /* ---- Scroll animations ---- */
@@ -971,19 +1055,18 @@
 </head>
 <body>
 
-<!-- Navigation -->
 <nav>
   <a href="#" class="nav-logo">AlpenSign <span>Monolith 2026</span></a>
   <div class="nav-links">
     <a href="#why">Why</a>
     <a href="#how">How it works</a>
     <a href="#tech">Tech</a>
+    <a href="#economy">Economy</a>
     <a href="#team">Team</a>
     <a href="https://github.com/gbits-io/alpensign/" target="_blank" rel="noopener" class="nav-cta">GitHub →</a>
   </div>
 </nav>
 
-<!-- Hero -->
 <section class="hero">
   <div class="hero-badge">Solana Seeker Hackathon Monolith · Q1 2026</div>
   <h1>The Solana Seeker is the first phone that can <em>seal</em> a bank payment on a public ledger.</h1>
@@ -1023,7 +1106,6 @@
   </div>
 </section>
 
-<!-- Why -->
 <section id="why">
   <div class="reveal">
     <div class="section-label">The Problem</div>
@@ -1059,7 +1141,6 @@
   </div>
 </section>
 
-<!-- How it works -->
 <section id="how">
   <div class="reveal">
     <div class="section-label">The Solution</div>
@@ -1103,9 +1184,25 @@
       </div>
     </div>
   </div>
+
+  <div class="flow-container reveal">
+    <div class="flow-slider-wrapper" id="flowSlider">
+      <div class="flow-slide">
+        <img src="./images/alpensign_sealing_flow.png" alt="Transaction Sealing Flow">
+        <div class="flow-caption">Transaction Sealing Flow</div>
+      </div>
+      <div class="flow-slide">
+        <img src="./images/alpensign_setup_flow.png" alt="Setup and Enrollment Flow">
+        <div class="flow-caption">Setup & Enrollment Flow</div>
+      </div>
+    </div>
+    <div class="flow-nav">
+      <button class="flow-dot active" onclick="scrollToFlow(0)"></button>
+      <button class="flow-dot" onclick="scrollToFlow(1)"></button>
+    </div>
+  </div>
 </section>
 
-<!-- Screenshots -->
 <div class="screenshots reveal" style="max-width: 1200px; margin: 0 auto;">
   <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2rem;">
     <div>
@@ -1146,7 +1243,6 @@
   </div>
 </div>
 
-<!-- Punchline -->
 <div class="punchline">
   <div class="attribution reveal">The AlpenSign Thesis</div>
   <blockquote class="reveal">
@@ -1154,7 +1250,6 @@
   </blockquote>
 </div>
 
-<!-- Tech Stack -->
 <section id="tech">
   <div class="reveal">
     <div class="section-label">Built With</div>
@@ -1192,7 +1287,6 @@
     </div>
   </div>
 
-  <!-- Comparison table -->
   <div class="comparison reveal">
     <table>
       <thead>
@@ -1238,7 +1332,31 @@
   </div>
 </section>
 
-<!-- Team -->
+<section id="economy">
+  <div class="reveal">
+    <div class="section-label">SKR Economy</div>
+    <h2 class="section-title">Economic Security for Hardware</h2>
+    <p class="section-desc">
+      Hardware integrity is not just a claim; it is an economic guarantee. 
+      AlpenSign leverages the SKR network to ensure your device remains a trusted vault.
+    </p>
+  </div>
+
+  <div class="problem-grid" style="margin-top: 3.5rem;">
+    <div class="problem-card reveal">
+      <span class="problem-icon">⚖️</span>
+      <h3>Stake to Verify</h3>
+      <p>Users stake SKR tokens to Verify Device Integrity. This decentralized consensus ensures that the hardware remains untampered and secure through economic incentives.</p>
+    </div>
+    <div class="problem-card reveal">
+      <span class="problem-icon">🩺</span>
+      <h3>Hardware Health Attestation</h3>
+      <p>By staking SKR to a Guardian, the user's AlpenSign app receives a 'Hardware Health Attestation' — a cryptographic proof that the Seeker's secure environment is healthy and genuine.</p>
+    </div>
+  </div>
+  
+</section>
+
 <section id="team">
   <div class="reveal">
     <div class="section-label">The Team</div>
@@ -1267,7 +1385,6 @@
   </div>
 </section>
 
-<!-- CTA -->
 <section id="join" class="cta-section">
   <div class="cta-box reveal">
     <div class="section-label">Open to Contributors</div>
@@ -1281,12 +1398,10 @@
       <a href="#" class="btn-secondary" onclick="revealContact(event)">Contact Team</a>
     </div>
     <p id="contactReveal" style="display:none; margin-top:1.5rem; font-family:'JetBrains Mono',monospace; font-size:0.88rem; color:var(--accent); position:relative; z-index:2;">
-      <!-- Email assembled by JS to deter scrapers -->
-    </p>
+      </p>
   </div>
 </section>
 
-<!-- Footer -->
 <footer>
   <div class="footer-left">
     <div class="footer-brand">AlpenSign</div>
@@ -1321,7 +1436,18 @@
     const slides = slider.querySelectorAll('.screenshot-placeholder');
     slides[index].scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
 
-    document.querySelectorAll('.screenshot-dot').forEach((dot, i) => {
+    document.querySelectorAll('.screenshot-nav .screenshot-dot').forEach((dot, i) => {
+      dot.classList.toggle('active', i === index);
+    });
+  }
+
+  // Flow Diagram Slider Function
+  function scrollToFlow(index) {
+    const slider = document.getElementById('flowSlider');
+    const slides = slider.querySelectorAll('.flow-slide');
+    slides[index].scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+
+    document.querySelectorAll('.flow-nav .flow-dot').forEach((dot, i) => {
       dot.classList.toggle('active', i === index);
     });
   }
