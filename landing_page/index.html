@@ -74,6 +74,15 @@
     color: var(--accent);
     letter-spacing: 0.01em;
     text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .nav-logo-img {
+    height: 44px;
+    width: auto;
+    display: block;
   }
 
   .nav-logo span {
@@ -415,10 +424,10 @@
     z-index: 2;
   }
 
-  .trust-step:nth-child(1) .trust-step-num { background: var(--accent-dim); color: var(--accent); border: 1.5px solid var(--border); }
-  .trust-step:nth-child(2) .trust-step-num { background: var(--alpine-dim); color: var(--alpine-blue); border: 1.5px solid rgba(44,111,187,0.2); }
-  .trust-step:nth-child(3) .trust-step-num { background: var(--accent-dim); color: var(--accent); border: 1.5px solid var(--border); }
-  .trust-step:nth-child(4) .trust-step-num { background: rgba(26,95,58,0.06); color: var(--accent); border: 1.5px solid var(--border); }
+  .trust-step:nth-child(1) .trust-step-num { background: #e4f0e9; color: var(--accent); border: 1.5px solid var(--border); }
+  .trust-step:nth-child(2) .trust-step-num { background: #e4eef8; color: var(--alpine-blue); border: 1.5px solid rgba(44,111,187,0.2); }
+  .trust-step:nth-child(3) .trust-step-num { background: #e4f0e9; color: var(--accent); border: 1.5px solid var(--border); }
+  .trust-step:nth-child(4) .trust-step-num { background: #e8f2ec; color: var(--accent); border: 1.5px solid var(--border); }
 
   .trust-step-content h3 {
     font-size: 1.05rem;
@@ -1062,7 +1071,7 @@
 <body>
 
 <nav>
-  <a href="#" class="nav-logo">AlpenSign <span>Monolith 2026</span></a>
+  <a href="#" class="nav-logo"><img src="./images/alpensign_gemini_logo.png" alt="AlpenSign" class="nav-logo-img"> <span>Monolith 2026</span></a>
   <div class="nav-links">
     <a href="#why">Why</a>
     <a href="#how">How it works</a>
@@ -1075,12 +1084,13 @@
 
 <section class="hero">
   <div class="hero-badge">Solana Seeker Hackathon Monolith · Q1 2026</div>
-  <h1>The Solana Seeker is the first phone that can <em>seal</em> a bank payment on a public ledger.</h1>
-  <p class="hero-sub" style="animation-delay: 0.25s;"">
-    <strong>Core Idea: AlpenSign</strong> turns the Solana Seeker into a transaction sealing device for banks.
-    Independent, immutable, cryptographic proof of payment authorization — on a ledger
-    no single party controls.
+  <h1>The Seeker is the phone that can <em>seal</em> a bank payment on a public ledger.</h1>
+  <p class="hero-sub" style="animation-delay: 0.25s;">
+    <strong style="color: var(--text-primary);">AlpenSign Core Idea:</strong> Use the Seeker's secure element + Solana as an independent second-channel authorization layer for bank payments. The phone doesn't replace the bank's auth — it attests that the client confirmed the transaction independently.
   </p>
+  <p class="hero-sub">
+    Seeker phone + SMS + TEEPIN + SKR + Solana Attestation Service (SAS)
+   </p>
   <div class="hero-actions">
     <a href="./videos/alpensign-01.mp4/" target="_blank" rel="noopener" class="btn-primary">Demo Video (DRAFT)</a>
     <a href="./app.html/" target="_blank" rel="noopener" class="btn-primary">AlpenSign App</a>
@@ -1384,7 +1394,7 @@
     </div>
     <div class="team-card reveal">
       <div class="team-avatar">⌘</div>
-      <h3>Claude Code</h3>
+      <h3>AI: Claude + Gemini</h3>
       <div class="role">AI Engineering Partner</div>
       <p class="bio">Anthropic Claude and Google Gemini</p>
     </div>
