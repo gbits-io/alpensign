@@ -429,6 +429,16 @@
   .tag-seal { background: rgba(80,200,120,0.1); color: #50c878; }
 
   /* ---- App Screenshots ---- */
+
+  .screenshot-img {
+  max-width: 100%;  /* Prevents the image from being wider than its parent div */
+  height: auto;     /* Keeps the proportions correct so it doesn't look squished */
+  display: block;   /* Removes the tiny gap often found under images */
+  
+  /* Optional: Set a specific maximum width if 100% is still too big */
+  width: 400px; 
+}
+
   .screenshots {
     background: var(--bg-secondary);
     border-radius: 12px;
