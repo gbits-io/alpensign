@@ -1,0 +1,74 @@
+# AlpenSign
+
+> AlpenSign is a transaction sealing solution for banks built on the Solana Seeker phone. It turns the Seeker's secure element and Solana blockchain into an independent second-channel authorization layer for bank payments — creating immutable, biometric-confirmed, cryptographic proof of payment authorization on a neutral public ledger.
+
+AlpenSign was built for the Solana Seeker Hackathon Monolith (Q1 2026) by a Swiss fintech team. The core idea: the phone doesn't replace the bank's authentication — it independently attests that the client confirmed the transaction. This produces evidence that is not controlled by the bank, making it structurally stronger than self-serving server logs in disputes and fraud cases.
+
+## Architecture
+
+AlpenSign implements a three-layer trust model:
+
+1. **Genesis Token** (Layer 1 — Device Identity): The Seeker's soulbound NFT proves the phone is genuine hardware, verified by SKR-staked Guardians through TEEPIN. No Apple or Google attestation required.
+2. **Bank Credential** (Layer 2 — Client Identity): The bank issues a credential via Solana Attestation Service (SAS) to the Seeker wallet, binding the client relationship to the verified device. Revocable by the bank.
+3. **Transaction Seal** (Layer 3 — Payment Authorization): The client reviews payment details on-device, confirms with biometric. The Seeker's secure element signs and AlpenSign posts the proof to Solana. Permanent and immutable.
+
+## Transaction Sealing Flow
+
+1. Bank Client initiates payment via Mobile Banking App
+2. Mobile Banking App sends a signing request to AlpenSign
+3. AlpenSign requests a signature from Solana Seeker (biometric confirmation via Seed Vault)
+4. Seeker returns the signed payload to AlpenSign
+5. AlpenSign posts the seal to Solana Blockchain (SAS attestation)
+6. Mobile Banking App verifies the seal on Solana
+
+## Setup & Enrollment Flow
+
+1. Solana Seeker connects wallet to AlpenSign
+2. AlpenSign sends enrollment request to Bank
+3. Bank verifies Genesis Token and issues SAS credential on Solana
+4. Bank mints a soulbound Client NFT to the Seeker wallet
+5. AlpenSign is enrolled and ready to seal transactions
+
+## Technology Stack
+
+- **Seeker Seed Vault**: Hardware-isolated key storage with biometric-gated signing. Keys never leave the secure element.
+- **Solana Attestation Service (SAS)**: Permissionless credential protocol from the Solana Foundation. Used for both bank credentials and transaction seals.
+- **Solana Mobile Stack**: Native wallet integration, dApp runtime, and TEEPIN device verification.
+- **TEEPIN + SKR Guardians**: Trusted Execution Environment Platform Infrastructure Network. SKR-staked Guardians verify device authenticity.
+
+## Key Differentiators vs Apple / Google Devices
+
+- On-chain device identity (Genesis Token) — Apple/Google have none
+- Decentralized device genuineness proof (TEEPIN + Guardians) — vs centralized Play Integrity / DeviceCheck
+- Bank credential bound to hardware wallet — vs no hardware binding
+- Trust dependency on math + decentralized network — vs revocable, opaque vendor control
+- No single party can revoke — vs vendor revocation at will
+
+## Regulatory Alignment
+
+- Cryptographic seals are structurally comparable to Qualified Electronic Signatures (QES) under eIDAS: identity-bound, non-repudiable, tamper-evident
+- GDPR-aligned: no personal data stored on-chain, only cryptographic hashes. Biometrics stay on-device in the secure element.
+- Immutable audit trail supports FINMA, MiFID II, and PSD2 Strong Customer Authentication (SCA) record-keeping requirements
+- Compatible with Switzerland's ZertES (Federal Act on Electronic Signatures) and the EU eIDAS trust services framework
+
+## Problem Statement
+
+Banks lose billions to fraud and friendly fraud. Their only defense in disputes is server logs they generated, stored, and control — structurally weak self-serving evidence. SMS OTP, push notifications, and app-based 2FA all depend on bank or Big Tech infrastructure with no independent verifiable trail. The burden of proof sits with the bank. AlpenSign's independent cryptographic evidence enables a potential reversal of the burden of proof.
+
+## Team
+
+- **Roman** — Founder, Product Management, Development. Founder of Koivu GmbH (Swiss fintech — continuous verification for financial institutions). Solana community member (redpill.skr).
+- **Alexandr** — Engineering. Building the Seeker app and Solana integration layer.
+- **Claude Code** — AI Engineering Partner. Architecture design, documentation, stakeholder analysis, and code generation (Anthropic Claude and Google Gemini).
+
+## Licensing
+
+- Code: Business Source License 1.1 (BSL 1.1), converting to Apache 2.0 on 2028-03-01
+- Documentation: CC BY-NC-SA 4.0
+
+## Links
+
+- [Landing Page](https://gbits-io.github.io/alpensign/)
+- [GitHub Repository](https://github.com/gbits-io/alpensign/)
+- [AlpenSign App](https://gbits-io.github.io/alpensign/app.html)
+- [Gbits.io](https://gbits.io)
