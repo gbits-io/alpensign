@@ -1,92 +1,987 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AlpenSign | Mobile HSM</title>
-    <style>
-        body { font-family: 'Segoe UI', sans-serif; background-color: #0a0e14; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; color: white; }
-        .card { background: #1c222d; padding: 2rem; border-radius: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); width: 90%; max-width: 400px; border: 1px solid #2d3544; text-align: center; position: relative; overflow: hidden; }
-        .payment-details { background: #131924; border-radius: 16px; padding: 20px; margin: 20px 0; border-left: 4px solid #ffcc00; text-align: left; }
-        .label { font-size: 0.7rem; color: #5c667a; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
-        .value { font-size: 1.2rem; margin-bottom: 12px; font-weight: 600; }
-        .iban { font-family: monospace; color: #ffcc00; font-size: 0.95rem; }
-        
-        button { width: 100%; padding: 16px; border-radius: 12px; font-size: 1rem; font-weight: bold; cursor: pointer; border: none; transition: 0.3s; margin-bottom: 10px; }
-        .btn-sign { background: linear-gradient(135deg, #ffcc00 0%, #ff9900 100%); color: #000; }
-        .btn-verify { background: #007AFF; color: white; display: none; }
-        .btn-onboard { background: #2d3544; color: #fff; font-size: 0.8rem; }
-        
-        #status { margin-top: 20px; font-size: 0.85rem; color: #8a94a6; min-height: 40px; }
-        .hidden { display: none !important; }
-        .hsm-badge { font-size: 0.6rem; border: 1px solid #00ff88; color: #00ff88; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0f1219">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>AlpenSign</title>
+<link rel="icon" type="image/png" sizes="32x32" href="./images/favicon/favicon-32x32.png">
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f1219;
+    --bg-card: #1a1f2e;
+    --bg-card-hover: #212738;
+    --bg-elevated: #252b3b;
+    --accent: #1a5f3a;
+    --accent-light: #22c55e;
+    --amber: #f59e0b;
+    --amber-dim: rgba(245, 158, 11, 0.12);
+    --purple: #9945ff;
+    --purple-dim: rgba(153, 69, 255, 0.12);
+    --blue: #2c6fbb;
+    --red: #ef4444;
+    --text: #f0f0ec;
+    --text-secondary: #8a94a6;
+    --text-dim: #505868;
+    --border: rgba(255,255,255,0.08);
+    --border-accent: rgba(26, 95, 58, 0.3);
+  }
 
-        /* WebView Shield */
-        #webviewShield { 
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            background: #0a0e14; display: flex; flex-direction: column; 
-            justify-content: center; align-items: center; z-index: 1000; padding: 30px; box-sizing: border-box;
-        }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
 
-        #techConsole { margin-top: 20px; text-align: left; background: #000; padding: 15px; border-radius: 8px; border: 1px solid #333; font-family: 'Courier New', monospace; font-size: 0.7rem; }
-        .console-label { color: #5c667a; text-transform: uppercase; margin-top: 8px; font-size: 0.6rem; }
-        .console-val { color: #ffcc00; word-break: break-all; }
-    </style>
+  body {
+    font-family: 'Source Sans 3', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ---- App Shell ---- */
+  .app {
+    max-width: 430px;
+    margin: 0 auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  /* ---- Header ---- */
+  .header {
+    padding: 1rem 1.25rem 0.75rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .header-logo {
+    font-weight: 800;
+    font-size: 1.1rem;
+    letter-spacing: 0.08em;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .header-logo img {
+    height: 28px;
+    width: auto;
+  }
+
+  .status-badge {
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 0.25rem 0.6rem;
+    border-radius: 100px;
+    border: 1px solid;
+  }
+
+  .badge-enrolled {
+    color: var(--accent-light);
+    border-color: rgba(34, 197, 94, 0.3);
+    background: rgba(34, 197, 94, 0.1);
+  }
+
+  .badge-pending {
+    color: var(--amber);
+    border-color: rgba(245, 158, 11, 0.3);
+    background: var(--amber-dim);
+  }
+
+  .badge-not-enrolled {
+    color: var(--text-dim);
+    border-color: var(--border);
+    background: transparent;
+  }
+
+  /* ---- Views ---- */
+  .view {
+    display: none;
+    flex: 1;
+    padding: 1.25rem;
+    padding-bottom: 5.5rem;
+    animation: fadeIn 0.3s ease;
+  }
+
+  .view.active { display: flex; flex-direction: column; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ---- Bottom Nav ---- */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 430px;
+    display: flex;
+    background: rgba(15, 18, 25, 0.95);
+    backdrop-filter: blur(20px);
+    border-top: 1px solid var(--border);
+    padding: 0.5rem 0;
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+    z-index: 100;
+  }
+
+  .nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    padding: 0.4rem 0;
+    color: var(--text-dim);
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color 0.2s;
+    border: none;
+    background: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .nav-item.active { color: var(--accent-light); }
+  .nav-item svg { width: 22px; height: 22px; }
+
+  /* ---- Cards ---- */
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+  }
+
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .card-title {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--text-secondary);
+  }
+
+  /* ---- Payment Detail Card ---- */
+  .payment-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--amber);
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .payment-row {
+    margin-bottom: 1rem;
+  }
+
+  .payment-row:last-child { margin-bottom: 0; }
+
+  .payment-label {
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-dim);
+    margin-bottom: 0.2rem;
+  }
+
+  .payment-value {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .payment-value.amount {
+    font-size: 1.6rem;
+    font-weight: 800;
+  }
+
+  .payment-value.iban {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+    color: var(--amber);
+    font-weight: 500;
+  }
+
+  .payment-value.reference {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: 400;
+  }
+
+  /* ---- Buttons ---- */
+  .btn {
+    width: 100%;
+    padding: 1rem;
+    border-radius: 12px;
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .btn:active { transform: scale(0.98); }
+
+  .btn-seal {
+    background: linear-gradient(135deg, #1a5f3a 0%, #22c55e 100%);
+    color: #fff;
+    font-size: 1.05rem;
+    padding: 1.1rem;
+    box-shadow: 0 4px 20px rgba(34, 197, 94, 0.25);
+  }
+
+  .btn-amber {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: #000;
+    box-shadow: 0 4px 20px rgba(245, 158, 11, 0.2);
+  }
+
+  .btn-secondary {
+    background: var(--bg-elevated);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    padding: 0.75rem;
+  }
+
+  .btn-danger {
+    background: transparent;
+    color: var(--red);
+    font-size: 0.75rem;
+    padding: 0.6rem;
+    border: 1px dashed rgba(239, 68, 68, 0.3);
+  }
+
+  .btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none !important;
+  }
+
+  /* ---- Enrollment Steps ---- */
+  .enroll-step {
+    display: none;
+    flex-direction: column;
+    gap: 1rem;
+    animation: fadeIn 0.4s ease;
+  }
+
+  .enroll-step.active { display: flex; }
+
+  .step-indicator {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .step-dot {
+    width: 32px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border);
+    transition: background 0.3s;
+  }
+
+  .step-dot.done { background: var(--accent-light); }
+  .step-dot.current { background: var(--amber); }
+
+  .enroll-icon {
+    font-size: 3rem;
+    text-align: center;
+    margin: 1rem 0 0.5rem;
+  }
+
+  .enroll-title {
+    font-size: 1.3rem;
+    font-weight: 800;
+    text-align: center;
+    line-height: 1.3;
+  }
+
+  .enroll-desc {
+    font-size: 0.92rem;
+    color: var(--text-secondary);
+    text-align: center;
+    line-height: 1.6;
+    max-width: 320px;
+    margin: 0 auto;
+  }
+
+  /* ---- Wallet Address Display ---- */
+  .wallet-display {
+    background: #000;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--amber);
+    word-break: break-all;
+    text-align: center;
+    line-height: 1.6;
+    letter-spacing: 0.02em;
+    position: relative;
+  }
+
+  .wallet-display .copy-hint {
+    display: block;
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    margin-top: 0.5rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  /* ---- Seal Status Progress ---- */
+  .seal-progress {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin: 1rem 0;
+  }
+
+  .seal-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.6rem 0;
+    opacity: 0.3;
+    transition: opacity 0.4s;
+  }
+
+  .seal-step.active { opacity: 1; }
+  .seal-step.done { opacity: 0.6; }
+
+  .seal-step-icon {
+    width: 28px;
+    min-width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 800;
+    background: var(--bg-elevated);
+    border: 1.5px solid var(--border);
+    color: var(--text-dim);
+  }
+
+  .seal-step.active .seal-step-icon {
+    background: var(--amber-dim);
+    border-color: var(--amber);
+    color: var(--amber);
+  }
+
+  .seal-step.done .seal-step-icon {
+    background: rgba(34, 197, 94, 0.1);
+    border-color: var(--accent-light);
+    color: var(--accent-light);
+  }
+
+  .seal-step-text {
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding-top: 0.2rem;
+  }
+
+  .seal-step-sub {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    font-weight: 400;
+  }
+
+  /* ---- Tech Console ---- */
+  .tech-console {
+    background: #000;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    margin-top: 0.5rem;
+    overflow: hidden;
+  }
+
+  .console-header {
+    color: var(--text-dim);
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .console-row {
+    margin-bottom: 0.6rem;
+  }
+
+  .console-label {
+    color: var(--text-dim);
+    font-size: 0.55rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.15rem;
+  }
+
+  .console-val {
+    color: var(--amber);
+    word-break: break-all;
+    line-height: 1.4;
+  }
+
+  .console-val.sig { color: var(--text); }
+  .console-val.hash { color: var(--accent-light); }
+  .console-val.link { color: var(--purple); text-decoration: underline; cursor: pointer; }
+
+  /* ---- History List ---- */
+  .history-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .history-item:last-child { border-bottom: none; }
+
+  .history-icon {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    background: rgba(34, 197, 94, 0.1);
+  }
+
+  .history-details { flex: 1; }
+
+  .history-recipient {
+    font-weight: 700;
+    font-size: 0.95rem;
+  }
+
+  .history-time {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+  }
+
+  .history-amount {
+    font-weight: 700;
+    font-size: 0.95rem;
+    text-align: right;
+  }
+
+  .history-status {
+    font-size: 0.6rem;
+    color: var(--accent-light);
+    text-align: right;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  /* ---- Notification Banner ---- */
+  .notification {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 430px;
+    background: var(--bg-elevated);
+    border-bottom: 1px solid var(--amber);
+    padding: 1rem 1.25rem;
+    z-index: 200;
+    cursor: pointer;
+    animation: slideDown 0.4s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .notification.show { display: flex; gap: 0.75rem; align-items: center; }
+
+  @keyframes slideDown {
+    from { transform: translateX(-50%) translateY(-100%); }
+    to { transform: translateX(-50%) translateY(0); }
+  }
+
+  .notif-icon {
+    font-size: 1.5rem;
+    min-width: 36px;
+    text-align: center;
+  }
+
+  .notif-text {
+    flex: 1;
+  }
+
+  .notif-title {
+    font-weight: 700;
+    font-size: 0.85rem;
+  }
+
+  .notif-body {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+  }
+
+  .notif-time {
+    font-size: 0.65rem;
+    color: var(--text-dim);
+  }
+
+  /* ---- Empty State ---- */
+  .empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--text-dim);
+  }
+
+  .empty-icon { font-size: 2.5rem; margin-bottom: 1rem; opacity: 0.4; }
+  .empty-text { font-size: 0.9rem; }
+
+  /* ---- Spinner ---- */
+  .spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255,255,255,0.2);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    display: inline-block;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* ---- Success Animation ---- */
+  .success-check {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: rgba(34, 197, 94, 0.15);
+    border: 2px solid var(--accent-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 1rem auto;
+    font-size: 1.8rem;
+    animation: scaleIn 0.4s ease;
+  }
+
+  @keyframes scaleIn {
+    from { transform: scale(0); }
+    50% { transform: scale(1.15); }
+    to { transform: scale(1); }
+  }
+
+  /* ---- Utility ---- */
+  .hidden { display: none !important; }
+  .text-center { text-align: center; }
+  .text-secondary { color: var(--text-secondary); }
+  .text-dim { color: var(--text-dim); }
+  .text-amber { color: var(--amber); }
+  .text-green { color: var(--accent-light); }
+  .text-purple { color: var(--purple); }
+  .mt-1 { margin-top: 0.5rem; }
+  .mt-2 { margin-top: 1rem; }
+  .mt-3 { margin-top: 1.5rem; }
+  .mb-1 { margin-bottom: 0.5rem; }
+  .mb-2 { margin-bottom: 1rem; }
+  .gap-sm { gap: 0.5rem; }
+  .font-mono { font-family: 'JetBrains Mono', monospace; }
+  .font-sm { font-size: 0.8rem; }
+  .font-xs { font-size: 0.7rem; }
+  .font-weight-800 { font-weight: 800; }
+
+  .info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .info-row:last-child { border-bottom: none; }
+
+  .info-label {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    font-weight: 600;
+  }
+
+  .info-value {
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+</style>
 </head>
 <body>
 
-<div class="card">
-    <div id="webviewShield" class="hidden">
-        <div style="font-size: 3rem; margin-bottom: 10px;">🛡️</div>
-        <h3 id="shieldTitle" style="color: #ffcc00;">Wallet Detected</h3>
-        <p style="font-size: 0.85rem; color: #8a94a6; line-height: 1.5;">AlpenSign requires a standalone browser for <b>Seeker Vault</b> access.</p>
-        <div style="background: #1c222d; padding: 12px; border-radius: 8px; width: 100%; margin-top: 10px;">
-            <p style="font-size: 0.75rem; color: #fff; margin: 0;">👉 Use <b>Chrome</b> or <b>Brave</b></p>
+<div class="app">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-logo">
+      <img src="./images/alpensign_gemini_logo.png" alt="AlpenSign" onerror="this.style.display='none'">
+      ALPENSIGN
+    </div>
+    <span id="headerBadge" class="status-badge badge-not-enrolled">Not Enrolled</span>
+  </div>
+
+  <!-- ==================== NOTIFICATION BANNER ==================== -->
+  <div id="notification" class="notification" onclick="openSealRequest()">
+    <div class="notif-icon">🔔</div>
+    <div class="notif-text">
+      <div class="notif-title">New Signing Request</div>
+      <div class="notif-body" id="notifBody">CHF 10,500.00 to ABC GmbH</div>
+    </div>
+    <div class="notif-time">now</div>
+  </div>
+
+  <!-- ==================== VIEW: ENROLLMENT ==================== -->
+  <div id="view-enroll" class="view">
+
+    <!-- Step 1: Welcome -->
+    <div id="enroll-1" class="enroll-step active">
+      <div class="step-indicator">
+        <div class="step-dot current"></div>
+        <div class="step-dot"></div>
+        <div class="step-dot"></div>
+      </div>
+      <div class="enroll-icon">🔐</div>
+      <div class="enroll-title">Initialize Seed Vault</div>
+      <div class="enroll-desc">
+        Create a hardware-bound key pair in your Seeker's secure element. This key never leaves the device.
+      </div>
+      <button class="btn btn-seal mt-2" id="btnInitVault">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2C8.13 2 5 5.13 5 9v3H4a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1V9c0-3.87-3.13-7-7-7zm3 10H9V9c0-1.66 1.34-3 3-3s3 1.34 3 3v3z"/></svg>
+        Initialize Vault
+      </button>
+      <div id="enrollStatus1" class="text-center text-secondary font-sm mt-1"></div>
+    </div>
+
+    <!-- Step 2: Show Wallet Address -->
+    <div id="enroll-2" class="enroll-step">
+      <div class="step-indicator">
+        <div class="step-dot done"></div>
+        <div class="step-dot current"></div>
+        <div class="step-dot"></div>
+      </div>
+      <div class="enroll-icon">📋</div>
+      <div class="enroll-title">Register with Your Bank</div>
+      <div class="enroll-desc">
+        Provide this Solana wallet address to your bank's mobile banking app to link your Seeker.
+      </div>
+      <div class="wallet-display" id="walletDisplay" onclick="copyWallet()">
+        <span id="walletAddr"></span>
+        <span class="copy-hint">Tap to copy</span>
+      </div>
+      <button class="btn btn-amber mt-2" id="btnSimulateBank">Simulate: Bank Confirms Enrollment</button>
+      <div id="enrollStatus2" class="text-center text-secondary font-sm mt-1">Waiting for bank verification...</div>
+    </div>
+
+    <!-- Step 3: Enrolled -->
+    <div id="enroll-3" class="enroll-step">
+      <div class="step-indicator">
+        <div class="step-dot done"></div>
+        <div class="step-dot done"></div>
+        <div class="step-dot done"></div>
+      </div>
+      <div class="success-check">✓</div>
+      <div class="enroll-title text-green">Enrollment Complete</div>
+      <div class="enroll-desc">
+        Your Seeker is now linked to your bank account. You can seal transactions with biometric confirmation.
+      </div>
+      <div class="card mt-2">
+        <div class="info-row">
+          <span class="info-label">Device</span>
+          <span class="info-value text-amber">Solana Seeker</span>
         </div>
-        <button onclick="document.getElementById('webviewShield').classList.add('hidden')" style="background:none; color:#5c667a; font-size: 0.7rem; margin-top: 20px; border: 1px solid #333;">Dismiss (Debug Mode)</button>
-    </div>
-
-    <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <span style="font-weight: bold; letter-spacing: 1px;">ALPENSIGN</span>
-        <span id="hsmBadge" class="hsm-badge hidden">HSM Active</span>
-    </div>
-
-    <div id="onboardView">
-        <h3>HSM Initialization</h3>
-        <p style="color: #8a94a6; font-size: 0.9rem; margin-bottom: 20px;">Pair this Seeker with your Bank Account to enable Hardware-Bound signatures.</p>
-        <button class="btn-onboard" id="onboardBtn">Pair Seeker HSM</button>
-    </div>
-
-    <div id="signView" class="hidden">
-        <div class="payment-details">
-            <div class="label">Recipient</div>
-            <div class="value">ABC GmbH</div>
-            <div class="label">Amount</div>
-            <div class="value">CHF 10,500.00</div>
+        <div class="info-row">
+          <span class="info-label">Credential</span>
+          <span class="info-value text-green">SAS Bound</span>
         </div>
-        <button class="btn-sign" id="signBtn">Sign with Fingerprint</button>
-        <button class="btn-verify" id="verifyBtn">Verify Cryptographic Proof</button>
-    </div>
-
-    <div id="status">Waiting...</div>
-
-    <div id="techConsole">
-        <div class="console-label">User Agent (Debug)</div>
-        <div id="uaDebug" class="console-val" style="font-size: 0.6rem; color: #8a94a6;"></div>
-        
-        <div id="techContent" class="hidden">
-            <div class="console-label">AAGUID</div>
-            <div id="aaguidValue" class="console-val"></div>
-            <div class="console-label">SHA-256 Manifest</div>
-            <div id="hashValue" class="console-val"></div>
-            <div class="console-label">ECDSA Signature</div>
-            <div id="sigValue" class="console-val" style="color:white"></div>
+        <div class="info-row">
+          <span class="info-label">Genesis Token</span>
+          <span class="info-value text-purple">Verified ✓</span>
         </div>
+      </div>
+      <button class="btn btn-seal mt-2" id="btnEnrollDone">Start Using AlpenSign</button>
     </div>
-    
-    <div id="resetArea" class="hidden" style="margin-top: 20px;">
-        <a href="#" id="resetBtn" style="color: #5c667a; font-size: 0.7rem;">[ Reset HSM ]</a>
+  </div>
+
+  <!-- ==================== VIEW: HOME ==================== -->
+  <div id="view-home" class="view">
+
+    <!-- Status Card -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Vault Status</span>
+        <span class="status-badge badge-enrolled">Enrolled</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Wallet</span>
+        <span class="info-value font-mono font-xs text-amber" id="homeWallet" style="max-width: 180px; overflow: hidden; text-overflow: ellipsis;"></span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Bank</span>
+        <span class="info-value">Demo Bank AG</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Seals Created</span>
+        <span class="info-value text-green" id="homeSealCount">0</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">SOL Balance</span>
+        <span class="info-value text-purple" id="homeSolBalance">0.0100</span>
+      </div>
     </div>
+
+    <!-- Simulate Request -->
+    <div class="card" style="border: 1px dashed var(--amber); background: rgba(245, 158, 11, 0.04);">
+      <div class="card-header">
+        <span class="card-title" style="color: var(--amber);">Demo Controls</span>
+      </div>
+      <p class="text-secondary font-sm mb-2">Simulate an incoming signing request from the bank's mobile app.</p>
+      <button class="btn btn-amber" id="btnSimulateRequest">
+        🔔 Simulate Payment Request
+      </button>
+    </div>
+
+    <!-- Recent Seals -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Recent Seals</span>
+      </div>
+      <div id="homeRecentSeals">
+        <div class="empty-state">
+          <div class="empty-icon">📭</div>
+          <div class="empty-text">No seals yet</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== VIEW: SEAL REQUEST ==================== -->
+  <div id="view-seal" class="view">
+
+    <div class="card-header">
+      <span class="card-title">Incoming Signing Request</span>
+      <span class="status-badge badge-pending" id="sealBadge">Pending</span>
+    </div>
+
+    <!-- Payment Details -->
+    <div class="payment-card" id="sealPaymentCard">
+      <div class="payment-row">
+        <div class="payment-label">Recipient</div>
+        <div class="payment-value" id="sealRecipient">ABC GmbH</div>
+      </div>
+      <div class="payment-row">
+        <div class="payment-label">Amount</div>
+        <div class="payment-value amount" id="sealAmount">CHF 10,500.00</div>
+      </div>
+      <div class="payment-row">
+        <div class="payment-label">IBAN</div>
+        <div class="payment-value iban" id="sealIban">CH78 7838 3838 3823</div>
+      </div>
+      <div class="payment-row">
+        <div class="payment-label">Reference</div>
+        <div class="payment-value reference" id="sealReference">INV-2026-0042</div>
+      </div>
+    </div>
+
+    <!-- Seal Button -->
+    <button class="btn btn-seal" id="btnSeal">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 11c0-1.1-.9-2-2-2s-2 .9-2 2 .9 2 2 2 2-.9 2-2z"/><path d="M18.5 8A6.5 6.5 0 0 0 12 1.5 6.5 6.5 0 0 0 5.5 8v2H4v10h16V10h-1.5V8z"/></svg>
+      Seal with Biometric
+    </button>
+
+    <!-- Seal Progress -->
+    <div id="sealProgress" class="seal-progress hidden">
+      <div class="seal-step" id="step-auth">
+        <div class="seal-step-icon">1</div>
+        <div>
+          <div class="seal-step-text">Biometric Authentication</div>
+          <div class="seal-step-sub">Seed Vault signing</div>
+        </div>
+      </div>
+      <div class="seal-step" id="step-hash">
+        <div class="seal-step-icon">2</div>
+        <div>
+          <div class="seal-step-text">Hash Payment Details</div>
+          <div class="seal-step-sub">SHA-256 of transaction data</div>
+        </div>
+      </div>
+      <div class="seal-step" id="step-sign">
+        <div class="seal-step-icon">3</div>
+        <div>
+          <div class="seal-step-text">Sign with Secure Element</div>
+          <div class="seal-step-sub">ECDSA-SHA256 (P-256)</div>
+        </div>
+      </div>
+      <div class="seal-step" id="step-post">
+        <div class="seal-step-icon">4</div>
+        <div>
+          <div class="seal-step-text">Post Seal to Solana</div>
+          <div class="seal-step-sub">SAS attestation via Helius RPC</div>
+        </div>
+      </div>
+      <div class="seal-step" id="step-confirm">
+        <div class="seal-step-icon">✓</div>
+        <div>
+          <div class="seal-step-text">Seal Confirmed</div>
+          <div class="seal-step-sub">Immutable on-chain record</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Seal Result (shown after confirmation) -->
+    <div id="sealResult" class="hidden">
+      <div class="success-check">✓</div>
+      <div class="text-center font-weight-800 text-green" style="font-size: 1.15rem;">Transaction Sealed</div>
+      <div class="text-center text-secondary font-sm mt-1">Immutable proof posted to Solana</div>
+
+      <div class="tech-console mt-2">
+        <div class="console-header">// CRYPTOGRAPHIC PROOF</div>
+        <div class="console-row">
+          <div class="console-label">Algorithm</div>
+          <div class="console-val">ECDSA-SHA256 (P-256)</div>
+        </div>
+        <div class="console-row">
+          <div class="console-label">Transaction Hash</div>
+          <div class="console-val hash" id="resultHash"></div>
+        </div>
+        <div class="console-row">
+          <div class="console-label">Vault Signature</div>
+          <div class="console-val sig" id="resultSig"></div>
+        </div>
+        <div class="console-row">
+          <div class="console-label">Solana TX</div>
+          <div class="console-val link" id="resultTx" onclick="openSolanaExplorer()"></div>
+        </div>
+        <div class="console-row">
+          <div class="console-label">Timestamp</div>
+          <div class="console-val" id="resultTime"></div>
+        </div>
+      </div>
+
+      <button class="btn btn-secondary mt-2" onclick="navigateTo('home')">← Back to Dashboard</button>
+    </div>
+  </div>
+
+  <!-- ==================== VIEW: HISTORY ==================== -->
+  <div id="view-history" class="view">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Seal History</span>
+        <span class="font-xs text-dim" id="historyCount"></span>
+      </div>
+      <div id="historyList">
+        <div class="empty-state">
+          <div class="empty-icon">📋</div>
+          <div class="empty-text">No seals recorded</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== VIEW: SETTINGS ==================== -->
+  <div id="view-settings" class="view">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Device Info</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">User Agent</span>
+        <span class="info-value font-mono font-xs text-dim" id="settingsUA" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;"></span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Credential ID</span>
+        <span class="info-value font-mono font-xs text-amber" id="settingsCredId" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;">—</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Network</span>
+        <span class="info-value text-purple">Solana Devnet</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">RPC</span>
+        <span class="info-value font-mono font-xs">Helius (proxy)</span>
+      </div>
+    </div>
+
+    <button class="btn btn-danger mt-2" id="btnReset">
+      Reset Device — Remove All Keys
+    </button>
+
+    <div class="text-center mt-3">
+      <div class="font-xs text-dim">AlpenSign v0.2.0 · Solana Seeker Hackathon Monolith</div>
+      <div class="font-xs text-dim mt-1">© 2026 Koivu GmbH · BSL 1.1</div>
+    </div>
+  </div>
+
+  <!-- ==================== BOTTOM NAV ==================== -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" data-view="home" onclick="navigateTo('home')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      Home
+    </button>
+    <button class="nav-item" data-view="history" onclick="navigateTo('history')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>
+      History
+    </button>
+    <button class="nav-item" data-view="settings" onclick="navigateTo('settings')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      Settings
+    </button>
+  </nav>
+
 </div>
 
 <script src="app.js"></script>
