@@ -325,6 +325,36 @@
     line-height: 1.8;
   }
 
+  .section-list {
+    list-style: none;
+    margin-top: 2rem;
+    max-width: 750px;
+    padding: 0;
+  }
+
+  .section-list li {
+    color: var(--text-secondary);
+    font-size: 1rem;
+    line-height: 1.75;
+    padding: 0.6rem 0 0.6rem 1.4rem;
+    position: relative;
+  }
+
+  .section-list li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 1.1rem;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  .section-list li strong {
+    color: var(--text-primary);
+  }
+
   .problem-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -412,6 +442,7 @@
     align-items: flex-start;
     padding: 1.8rem 0;
     position: relative;
+    z-index: 2;
   }
 
   .trust-step-num {
@@ -1109,6 +1140,7 @@
     <a href="#join" class="btn-secondary">Join the Team</a> 
   </div>
 
+  <!--
   <div class="hero-stats">
     <div>
       <div class="hero-stat-value">3 Layers</div>
@@ -1128,7 +1160,7 @@
     </div>
   </div>
 </section>
-
+-->
 <section id="why">
   <div class="reveal">
     <div class="section-label">The Problem</div>
@@ -1140,28 +1172,12 @@
     </p>
   </div>
 
-  <div class="problem-grid">
-    <div class="problem-card reveal">
-      <span class="problem-icon">🏦</span>
-      <h3>Self-Serving Evidence</h3>
-      <p>Bank logs prove what the bank says happened. In a dispute, that's structurally weak — the bank is both the record keeper and the interested party.</p>
-    </div>
-    <div class="problem-card reveal">
-      <span class="problem-icon">💸</span>
-      <h3>Friendly Fraud</h3>
-      <p>Clients who made legitimate purchases then dispute them. Buyer's remorse disguised as fraud. Banks absorb billions annually because they can't prove the client was present.</p>
-    </div>
-    <div class="problem-card reveal">
-      <span class="problem-icon">📱</span>
-      <h3>Weak Authentication Proof</h3>
-      <p>SMS OTP, push notifications, app-based 2FA — all controlled by the bank or dependent on Apple and Google infrastructure. No independent, verifiable trail.</p>
-    </div>
-    <div class="problem-card reveal">
-      <span class="problem-icon">⚖️</span>
-      <h3>Burden of Proof Stuck with the Bank</h3>
-      <p>In disputes, banks must prove the client authorized the transaction. With only self-serving logs, that's an uphill battle. AlpenSign's independent cryptographic evidence enables a <strong>potential reversal of the burden of proof</strong> — the client would need to explain away an immutable, biometric-confirmed seal.</p>
-    </div>
-  </div>
+  <ul class="section-list reveal">
+    <li><strong>Self-serving evidence</strong> — Bank logs prove what the bank says happened. In a dispute, the bank is both record keeper and interested party.</li>
+    <li><strong>Friendly fraud</strong> — Clients dispute legitimate payments. Banks absorb billions because they can't prove the client was present.</li>
+    <li><strong>Weak authentication proof</strong> — SMS OTP, push notifications, app-based 2FA — all bank-controlled or dependent on Apple/Google. No independent trail.</li>
+    <li><strong>Burden of proof stuck with the bank</strong> — Banks must prove authorization with only self-serving logs. AlpenSign enables a potential reversal — the client must explain away an immutable, biometric-confirmed seal.</li>
+  </ul>
 </section>
 
 <section id="how">
@@ -1409,37 +1425,36 @@
   </div>
 </section>
 
+<section id="why-seeker">
+  <div class="reveal">
+    <div class="section-label">Why Solana Seeker?</div>
+    <h2 class="section-title">What's not possible on iPhone or Pixel.</h2>
+  </div>
+
+  <ul class="section-list reveal">
+    <li><strong>No on-chain device identity</strong> — Apple and Google have no equivalent to the Genesis Token. You cannot prove on a public ledger which specific device signed.</li>
+    <li><strong>No decentralized device attestation</strong> — Play Integrity and DeviceCheck are centralized, opaque, and revocable by the vendor at any time.</li>
+    <li><strong>No native Solana signing in the secure element</strong> — Seed Vault signs Solana transactions directly inside the hardware. On iOS/Android, there is no OS-level blockchain signing integration.</li>
+    <li><strong>No vendor-free trust chain</strong> — On iPhone, Apple sits in the middle. On Pixel, Google does. Either can change terms, revoke attestation, or shut down APIs unilaterally. Banks have zero recourse.</li>
+    <li><strong>No direct-to-chain posting from the device</strong> — Solana Mobile Stack lets the dApp submit transactions without a server relay. On iOS/Android, you'd need a backend intermediary — adding a trust dependency.</li>
+  </ul>
+</section>
+
 <section id="regulatory">
   <div class="reveal">
     <div class="section-label">Regulatory Compliance &amp; Alignment</div>
-    <h2 class="section-title">Designed with European regulation in mind.</h2>
+    <h2 class="section-title">Designed with regulation in mind.</h2>
     <p class="section-desc">
       AlpenSign's architecture aligns with existing and emerging regulatory frameworks for electronic signatures, data protection, and financial services compliance.
     </p>
   </div>
 
-  <div class="problem-grid" style="margin-top: 3.5rem;">
-    <div class="problem-card reveal">
-      <span class="problem-icon">✍️</span>
-      <h3>Comparable to Qualified Electronic Signatures</h3>
-      <p>AlpenSign seals combine biometric confirmation, hardware-isolated key storage, and a secure element — the same building blocks underlying QES under the EU's eIDAS regulation. While not a certified QES provider, the cryptographic guarantees are structurally equivalent: identity-bound, non-repudiable, and tamper-evident.</p>
-    </div>
-    <div class="problem-card reveal">
-      <span class="problem-icon">🔒</span>
-      <h3>GDPR-Aligned by Design</h3>
-      <p>No personal data is stored on-chain. Transaction seals contain only cryptographic hashes — no names, account numbers, or payment details touch the Solana ledger. The biometric confirmation stays entirely on-device within the Seeker's secure element, never transmitted or stored externally.</p>
-    </div>
-    <div class="problem-card reveal">
-      <span class="problem-icon">📜</span>
-      <h3>Immutable Audit Trail</h3>
-      <p>Every seal creates a timestamped, cryptographically signed record on Solana's public ledger — an independent audit trail that neither the bank nor the client can alter after the fact. This supports regulatory requirements for record-keeping under FINMA, MiFID II, and PSD2 strong customer authentication (SCA).</p>
-    </div>
-    <div class="problem-card reveal">
-      <span class="problem-icon">🇨🇭</span>
-      <h3>Swiss &amp; EU Framework Compatibility</h3>
-      <p>AlpenSign's two-channel authorization model aligns with PSD2/SCA requirements for independent authentication. The architecture is compatible with Switzerland's ZertES (Federal Act on Electronic Signatures) and the broader European eIDAS trust services framework for advanced electronic signatures.</p>
-    </div>
-  </div>
+  <ul class="section-list reveal">
+    <li><strong>QES-comparable</strong> — Biometric + secure element + hardware-isolated keys: structurally equivalent to Qualified Electronic Signatures under eIDAS</li>
+    <li><strong>GDPR by design</strong> — No personal data on-chain. Only cryptographic hashes. Biometrics stay on-device.</li>
+    <li><strong>Immutable audit trail</strong> — Timestamped, tamper-proof record on Solana. Supports FINMA, MiFID II, and PSD2/SCA requirements.</li>
+    <li><strong>Swiss &amp; EU compatible</strong> — Aligns with ZertES, eIDAS trust services, and PSD2 independent authentication requirements.</li>
+  </ul>
 </section>
 
 <section id="join" class="cta-section">
