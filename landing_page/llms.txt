@@ -57,7 +57,7 @@ Banks lose billions to fraud and friendly fraud. Their only defense in disputes 
 
 ## Team
 
-- **Roman** — Founder, Product Management, Development. Founder of Koivu GmbH (Swiss fintech — continuous verification for financial institutions). Solana community member (redpill.skr).
+- **Roman** — Founder, Product Management, Development. 
 - **Alexandr** — Engineering. Building the Seeker app and Solana integration layer.
 - **Claude Code** — AI Engineering Partner. Architecture design, documentation, stakeholder analysis, and code generation (Anthropic Claude and Google Gemini).
 
