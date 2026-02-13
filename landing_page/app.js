@@ -1,17 +1,26 @@
 // ============================================================
-// AlpenSign v0.2.0 — Transaction Sealing for Banks
+// AlpenSign v0.3.0 — Transaction Sealing for Banks
 // Solana Seeker Hackathon Monolith · Q1 2026
 // ============================================================
 
 const RP_ID = window.location.hostname;
+
+// ---- Solana Setup ----
+const SOLANA_RPC = 'https://api.devnet.solana.com';
+const MEMO_PROGRAM_ID = 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr';
+let solanaConnection = null;
+let solanaKeypair = null;
 
 // ---- State ----
 let state = {
   enrolled: false,
   credId: null,
   walletAddr: null,
+  solanaSecretKey: null,
   seals: [],
   currentRequest: null,
+  deviceType: 'UNKNOWN',
+  deviceModel: '',
 };
 
 // ---- Helpers ----
@@ -19,20 +28,6 @@ const $ = (id) => document.getElementById(id);
 const bufferify = (str) => Uint8Array.from(atob(str), c => c.charCodeAt(0));
 const base64ify = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)));
 const hexify = (buf) => Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
-
-function generateWalletAddr() {
-  const chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-  let addr = '';
-  for (let i = 0; i < 44; i++) addr += chars[Math.floor(Math.random() * chars.length)];
-  return addr;
-}
-
-function generateSolanaTx() {
-  const chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-  let tx = '';
-  for (let i = 0; i < 88; i++) tx += chars[Math.floor(Math.random() * chars.length)];
-  return tx;
-}
 
 function formatTime(ts) {
   const d = new Date(ts);
@@ -45,12 +40,165 @@ function formatTime(ts) {
     ' ' + d.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' });
 }
 
-// ---- Persistence ----
+// ============================================================
+// DEVICE DETECTION
+// ============================================================
+
+function detectDevice() {
+  const ua = navigator.userAgent;
+  const banner = $('deviceBanner');
+  const icon = $('deviceIcon');
+  const msg = $('deviceMessage');
+  const model = $('deviceModel');
+
+  let deviceModel = 'Unknown';
+  const androidMatch = ua.match(/;\s*([^;)]+?)\s*Build\//);
+  if (androidMatch) {
+    deviceModel = androidMatch[1].trim();
+  }
+
+  const isSeeker = /seeker|solana\s*mobile|saga/i.test(ua) || /seeker/i.test(deviceModel);
+  const isAndroid = /android/i.test(ua);
+  const isIOS = /iphone|ipad|ipod/i.test(ua);
+
+  if (isSeeker) {
+    state.deviceType = 'SOLANA_SEEKER';
+    state.deviceModel = deviceModel;
+    banner.className = 'device-banner show seeker';
+    icon.textContent = '✅';
+    msg.textContent = 'Solana Seeker detected — Seed Vault available';
+    model.textContent = deviceModel;
+  } else if (isAndroid) {
+    state.deviceType = 'GENERIC_ANDROID';
+    state.deviceModel = deviceModel;
+    banner.className = 'device-banner show warning';
+    icon.textContent = '⚠️';
+    msg.innerHTML = 'Non-Seeker device — signatures are <b>not</b> backed by Genesis Token or TEEPIN';
+    model.textContent = deviceModel;
+  } else if (isIOS) {
+    state.deviceType = 'IOS';
+    state.deviceModel = 'iPhone / iPad';
+    banner.className = 'device-banner show warning';
+    icon.textContent = '⚠️';
+    msg.innerHTML = 'iOS device — no Seed Vault or Genesis Token available';
+    model.textContent = 'Apple Secure Enclave (no Solana integration)';
+  } else {
+    state.deviceType = 'DESKTOP';
+    state.deviceModel = 'Desktop Browser';
+    banner.className = 'device-banner show desktop';
+    icon.textContent = '🖥️';
+    msg.textContent = 'Desktop browser — demo mode only, no hardware secure element';
+    model.textContent = navigator.platform || 'Unknown platform';
+  }
+
+  return state.deviceType;
+}
+
+// ============================================================
+// SOLANA WALLET (BROWSER-SIDE FOR MEMO TX)
+// ============================================================
+
+function initSolana() {
+  try {
+    if (typeof solanaWeb3 === 'undefined') {
+      console.warn('solanaWeb3 not loaded');
+      return false;
+    }
+
+    solanaConnection = new solanaWeb3.Connection(SOLANA_RPC, 'confirmed');
+
+    if (state.solanaSecretKey) {
+      const secretArray = new Uint8Array(JSON.parse(state.solanaSecretKey));
+      solanaKeypair = solanaWeb3.Keypair.fromSecretKey(secretArray);
+    } else {
+      solanaKeypair = solanaWeb3.Keypair.generate();
+      state.solanaSecretKey = JSON.stringify(Array.from(solanaKeypair.secretKey));
+      saveState();
+    }
+
+    console.log('Solana wallet:', solanaKeypair.publicKey.toBase58());
+    return true;
+  } catch (e) {
+    console.error('Solana init failed:', e);
+    return false;
+  }
+}
+
+async function getSolBalance() {
+  if (!solanaConnection || !solanaKeypair) return 0;
+  try {
+    const balance = await solanaConnection.getBalance(solanaKeypair.publicKey);
+    return balance / solanaWeb3.LAMPORTS_PER_SOL;
+  } catch (e) {
+    console.warn('Balance check failed:', e);
+    return 0;
+  }
+}
+
+async function requestAirdrop() {
+  if (!solanaConnection || !solanaKeypair) return false;
+  try {
+    const sig = await solanaConnection.requestAirdrop(
+      solanaKeypair.publicKey,
+      1 * solanaWeb3.LAMPORTS_PER_SOL
+    );
+    await solanaConnection.confirmTransaction(sig, 'confirmed');
+    return true;
+  } catch (e) {
+    console.error('Airdrop failed:', e);
+    return false;
+  }
+}
+
+async function postMemoTransaction(memoData) {
+  if (!solanaConnection || !solanaKeypair) {
+    throw new Error('Solana not initialized');
+  }
+
+  const balance = await solanaConnection.getBalance(solanaKeypair.publicKey);
+  if (balance < 5000) {
+    throw new Error('Insufficient SOL. Request an airdrop in Settings.');
+  }
+
+  const memoInstruction = new solanaWeb3.TransactionInstruction({
+    keys: [],
+    programId: new solanaWeb3.PublicKey(MEMO_PROGRAM_ID),
+    data: new TextEncoder().encode(memoData),
+  });
+
+  const transaction = new solanaWeb3.Transaction().add(memoInstruction);
+
+  const { blockhash, lastValidBlockHeight } = await solanaConnection.getLatestBlockhash('confirmed');
+  transaction.recentBlockhash = blockhash;
+  transaction.feePayer = solanaKeypair.publicKey;
+
+  transaction.sign(solanaKeypair);
+
+  const rawTx = transaction.serialize();
+  const txSignature = await solanaConnection.sendRawTransaction(rawTx, {
+    skipPreflight: false,
+    preflightCommitment: 'confirmed',
+  });
+
+  await solanaConnection.confirmTransaction({
+    signature: txSignature,
+    blockhash,
+    lastValidBlockHeight,
+  }, 'confirmed');
+
+  return txSignature;
+}
+
+// ============================================================
+// PERSISTENCE
+// ============================================================
+
 function saveState() {
   localStorage.setItem('alpensign_state', JSON.stringify({
     enrolled: state.enrolled,
     credId: state.credId,
     walletAddr: state.walletAddr,
+    solanaSecretKey: state.solanaSecretKey,
     seals: state.seals,
   }));
 }
@@ -62,6 +210,7 @@ function loadState() {
       state.enrolled = saved.enrolled || false;
       state.credId = saved.credId || null;
       state.walletAddr = saved.walletAddr || null;
+      state.solanaSecretKey = saved.solanaSecretKey || null;
       state.seals = saved.seals || [];
     }
   } catch (e) {
@@ -69,7 +218,10 @@ function loadState() {
   }
 }
 
-// ---- Navigation ----
+// ============================================================
+// NAVIGATION
+// ============================================================
+
 function navigateTo(viewName) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -80,13 +232,11 @@ function navigateTo(viewName) {
   const navItem = document.querySelector(`.nav-item[data-view="${viewName}"]`);
   if (navItem) navItem.classList.add('active');
 
-  // Update view-specific content
   if (viewName === 'home') updateHomeView();
   if (viewName === 'history') updateHistoryView();
   if (viewName === 'settings') updateSettingsView();
 }
 
-// ---- Header Badge ----
 function updateHeaderBadge() {
   const badge = $('headerBadge');
   if (state.enrolled) {
@@ -101,39 +251,48 @@ function updateHeaderBadge() {
   }
 }
 
-// ---- Home View ----
-function updateHomeView() {
-  $('homeWallet').textContent = state.walletAddr ? state.walletAddr.slice(0, 8) + '...' + state.walletAddr.slice(-6) : '—';
+// ============================================================
+// HOME VIEW
+// ============================================================
+
+async function updateHomeView() {
+  const walletAddr = solanaKeypair ? solanaKeypair.publicKey.toBase58() : (state.walletAddr || '—');
+  $('homeWallet').textContent = walletAddr.slice(0, 8) + '...' + walletAddr.slice(-6);
   $('homeSealCount').textContent = state.seals.length;
 
-  // Simulated SOL balance
-  const solUsed = state.seals.length * 0.000005;
-  const balance = Math.max(0, 0.01 - solUsed).toFixed(6);
-  $('homeSolBalance').textContent = balance + ' SOL';
+  try {
+    const bal = await getSolBalance();
+    $('homeSolBalance').textContent = bal.toFixed(6) + ' SOL';
+    $('homeSolBalance').style.color = bal > 0 ? 'var(--accent-light)' : 'var(--text-dim)';
+  } catch (e) {
+    $('homeSolBalance').textContent = '— (offline)';
+  }
 
-  // Recent seals
   const container = $('homeRecentSeals');
   if (state.seals.length === 0) {
     container.innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">No seals yet</div></div>';
   } else {
     const recent = state.seals.slice(-3).reverse();
     container.innerHTML = recent.map(s => `
-      <div class="history-item">
-        <div class="history-icon">✅</div>
+      <div class="history-item" ${s.solanaTxReal ? `onclick="window.open('https://explorer.solana.com/tx/${s.solanaTx}?cluster=devnet','_blank')" style="cursor:pointer;"` : ''}>
+        <div class="history-icon">${s.solanaTxReal ? '✅' : '⏳'}</div>
         <div class="history-details">
           <div class="history-recipient">${s.recipient}</div>
           <div class="history-time">${formatTime(s.timestamp)}</div>
         </div>
         <div>
           <div class="history-amount">${s.amount}</div>
-          <div class="history-status">Sealed ✓</div>
+          <div class="history-status">${s.solanaTxReal ? 'On-chain ✓' : 'Simulated'}</div>
         </div>
       </div>
     `).join('');
   }
 }
 
-// ---- History View ----
+// ============================================================
+// HISTORY VIEW
+// ============================================================
+
 function updateHistoryView() {
   const container = $('historyList');
   $('historyCount').textContent = state.seals.length ? `${state.seals.length} seal${state.seals.length > 1 ? 's' : ''}` : '';
@@ -144,31 +303,46 @@ function updateHistoryView() {
   }
 
   container.innerHTML = state.seals.slice().reverse().map(s => `
-    <div class="history-item">
-      <div class="history-icon">✅</div>
+    <div class="history-item" ${s.solanaTxReal ? `onclick="window.open('https://explorer.solana.com/tx/${s.solanaTx}?cluster=devnet','_blank')" style="cursor:pointer;"` : ''}>
+      <div class="history-icon">${s.solanaTxReal ? '✅' : '⏳'}</div>
       <div class="history-details">
         <div class="history-recipient">${s.recipient}</div>
         <div class="history-time">${formatTime(s.timestamp)}</div>
       </div>
       <div>
         <div class="history-amount">${s.amount}</div>
-        <div class="history-status">Sealed ✓</div>
+        <div class="history-status">${s.solanaTxReal ? 'On-chain ✓' : 'Simulated'}</div>
       </div>
     </div>
   `).join('');
 }
 
-// ---- Settings View ----
-function updateSettingsView() {
+// ============================================================
+// SETTINGS VIEW
+// ============================================================
+
+async function updateSettingsView() {
   $('settingsUA').textContent = navigator.userAgent.substring(0, 60) + '...';
   $('settingsCredId').textContent = state.credId ? state.credId.substring(0, 24) + '...' : '—';
+  $('settingsDevice').textContent = `${state.deviceType} (${state.deviceModel})`;
+  $('settingsDevice').style.color = state.deviceType === 'SOLANA_SEEKER' ? 'var(--accent-light)' : 'var(--amber)';
+
+  if (solanaKeypair) {
+    $('settingsSolAddr').textContent = solanaKeypair.publicKey.toBase58().substring(0, 20) + '...';
+    try {
+      const bal = await getSolBalance();
+      $('settingsSolBal').textContent = bal.toFixed(6) + ' SOL';
+      $('settingsSolBal').style.color = bal > 0 ? 'var(--accent-light)' : 'var(--red)';
+    } catch (e) {
+      $('settingsSolBal').textContent = '— (offline)';
+    }
+  }
 }
 
 // ============================================================
 // ENROLLMENT FLOW
 // ============================================================
 
-// Step 1: Initialize Vault (WebAuthn Create)
 $('btnInitVault').addEventListener('click', async () => {
   const statusEl = $('enrollStatus1');
   const btn = $('btnInitVault');
@@ -195,12 +369,15 @@ $('btnInitVault').addEventListener('click', async () => {
   try {
     const cred = await navigator.credentials.create(options);
     state.credId = base64ify(cred.rawId);
-    state.walletAddr = generateWalletAddr();
-    saveState();
 
+    // Use real Solana address if available
+    state.walletAddr = solanaKeypair
+      ? solanaKeypair.publicKey.toBase58()
+      : (() => { const c = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'; let a = ''; for (let i = 0; i < 44; i++) a += c[Math.floor(Math.random() * c.length)]; return a; })();
+
+    saveState();
     statusEl.innerHTML = '<span style="color: var(--accent-light);">✓ Vault key pair created</span>';
 
-    // Advance to step 2 after brief delay
     setTimeout(() => {
       $('enroll-1').classList.remove('active');
       $('enroll-2').classList.add('active');
@@ -215,7 +392,6 @@ $('btnInitVault').addEventListener('click', async () => {
   }
 });
 
-// Step 2: Simulate Bank Confirmation
 $('btnSimulateBank').addEventListener('click', () => {
   const btn = $('btnSimulateBank');
   const statusEl = $('enrollStatus2');
@@ -224,18 +400,13 @@ $('btnSimulateBank').addEventListener('click', () => {
   btn.innerHTML = '<span class="spinner"></span> Bank verifying...';
   statusEl.textContent = 'Verifying Genesis Token + issuing credential...';
 
-  // Simulate bank verification delay
   setTimeout(() => {
     statusEl.innerHTML = '<span style="color: var(--accent-light);">✓ SAS Credential issued</span>';
-
     setTimeout(() => {
       statusEl.innerHTML += '<br><span style="color: var(--purple);">✓ Client NFT minted (soulbound)</span>';
-
       setTimeout(() => {
         state.enrolled = true;
         saveState();
-
-        // Advance to step 3
         $('enroll-2').classList.remove('active');
         $('enroll-3').classList.add('active');
         updateHeaderBadge();
@@ -244,7 +415,6 @@ $('btnSimulateBank').addEventListener('click', () => {
   }, 1500);
 });
 
-// Step 3: Done — Go to Dashboard
 $('btnEnrollDone').addEventListener('click', () => {
   navigateTo('home');
 });
@@ -253,44 +423,63 @@ $('btnEnrollDone').addEventListener('click', () => {
 // TRANSACTION SEALING FLOW
 // ============================================================
 
-// Sample payment requests for demo variety
 const samplePayments = [
-  { recipient: 'ABC GmbH', amount: 'CHF 10,500.00', iban: 'CH78 7838 3838 3823', ref: 'INV-2026-0042' },
-  { recipient: 'Müller AG', amount: 'CHF 3,280.50', iban: 'CH93 0076 2011 6238 5295 7', ref: 'PO-2026-1187' },
-  { recipient: 'Swiss Re Ltd', amount: 'CHF 47,000.00', iban: 'CH56 0483 5012 3456 7800 9', ref: 'PREM-Q1-2026' },
-  { recipient: 'Café Sprüngli', amount: 'CHF 156.80', iban: 'CH12 0900 0000 1500 1234 5', ref: 'CATER-FEB-26' },
-  { recipient: 'Kantonsspital ZH', amount: 'CHF 892.00', iban: 'CH62 0070 0110 0006 1425 8', ref: 'PAT-20260213' },
+  { recipient: 'ABC GmbH', town: 'Zürich', country: 'CH', amount: 'CHF 10,500.00', iban: 'CH78 7838 3838 3823', ref: 'INV-2026-0042' },
+  { recipient: 'Müller Maschinenbau AG', town: 'Basel', country: 'CH', amount: 'CHF 3,280.50', iban: 'CH93 0076 2011 6238 5295 7', ref: 'PO-2026-1187' },
+  { recipient: 'Swiss Re Ltd', town: 'Zürich', country: 'CH', amount: 'CHF 47,000.00', iban: 'CH56 0483 5012 3456 7800 9', ref: 'PREM-Q1-2026' },
+  { recipient: 'Café Sprüngli AG', town: 'Zürich', country: 'CH', amount: 'CHF 156.80', iban: 'CH12 0900 0000 1500 1234 5', ref: 'CATER-FEB-26' },
+  { recipient: 'Universitätsspital Zürich', town: 'Zürich', country: 'CH', amount: 'CHF 892.00', iban: 'CH62 0070 0110 0006 1425 8', ref: 'PAT-20260213' },
+  { recipient: 'Boulangerie du Pont SA', town: 'Genève', country: 'CH', amount: 'CHF 234.00', iban: 'CH44 0026 0026 0100 0001 1', ref: 'CMD-2026-088' },
+  { recipient: 'Schmidt & Partner GmbH', town: 'München', country: 'DE', amount: 'EUR 8,750.00', iban: 'DE89 3704 0044 0532 0130 00', ref: 'CONSUL-FEB26' },
 ];
 
-// Simulate incoming request
+function buildSealPayload(payment, txHash, deviceSignature) {
+  return JSON.stringify({
+    v: 1,
+    type: 'ALPENSIGN_SEAL',
+    schema: 'alpensign:seal:v1',
+    payment_hash: txHash,
+    device_sig: deviceSignature.substring(0, 64),
+    auth: {
+      method: 'BIOMETRIC_HARDWARE',
+      channel: 'INDEPENDENT_DEVICE',
+      device_type: state.deviceType,
+    },
+    recipient: {
+      name: payment.recipient,
+      town: payment.town,
+      country: payment.country,
+    },
+    amount: payment.amount,
+    iban: payment.iban,
+    ref: payment.ref,
+    ts: Math.floor(Date.now() / 1000),
+  });
+}
+
 $('btnSimulateRequest').addEventListener('click', () => {
   const payment = samplePayments[Math.floor(Math.random() * samplePayments.length)];
   state.currentRequest = payment;
 
-  // Show notification
   $('notifBody').textContent = `${payment.amount} to ${payment.recipient}`;
   $('notification').classList.add('show');
 
-  // Auto-dismiss after 5s
   setTimeout(() => {
     $('notification').classList.remove('show');
   }, 5000);
 });
 
-// Open seal request from notification
 function openSealRequest() {
   $('notification').classList.remove('show');
-
   if (!state.currentRequest) return;
   const p = state.currentRequest;
 
-  // Populate seal view
   $('sealRecipient').textContent = p.recipient;
+  $('sealLocation').textContent = `${p.town}, ${p.country}`;
   $('sealAmount').textContent = p.amount;
   $('sealIban').textContent = p.iban;
   $('sealReference').textContent = p.ref;
 
-  // Reset seal view state
   $('btnSeal').classList.remove('hidden');
   $('btnSeal').disabled = false;
   $('sealProgress').classList.add('hidden');
@@ -305,16 +494,13 @@ function openSealRequest() {
 
   navigateTo('seal');
 }
-// Expose to inline onclick
 window.openSealRequest = openSealRequest;
 
-// Seal with biometric
 $('btnSeal').addEventListener('click', async () => {
   if (!state.credId) return;
   const btn = $('btnSeal');
   btn.disabled = true;
 
-  // Show progress
   $('sealProgress').classList.remove('hidden');
   const steps = ['step-auth', 'step-hash', 'step-sign', 'step-post', 'step-confirm'];
 
@@ -332,11 +518,13 @@ $('btnSeal').addEventListener('click', async () => {
     await activateStep(0);
 
     const p = state.currentRequest;
-    const txData = `${p.amount}|${p.recipient}|${p.iban}|${p.ref}|${Date.now()}`;
+    const txData = [
+      p.amount, p.recipient, p.town, p.country,
+      p.iban, p.ref, Date.now().toString()
+    ].join('|');
     const challengeBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(txData));
     const txHash = hexify(challengeBuffer);
 
-    // WebAuthn assertion (triggers biometric)
     const assertion = await navigator.credentials.get({
       publicKey: {
         challenge: new Uint8Array(challengeBuffer),
@@ -354,38 +542,51 @@ $('btnSeal').addEventListener('click', async () => {
     // Step 3: Sign
     await activateStep(2);
 
-    // Step 4: Post to Solana (simulated)
+    // Step 4: Post to Solana
     await activateStep(3);
     $('sealBadge').textContent = 'Posting...';
 
-    // Simulate network delay
-    await new Promise(r => setTimeout(r, 1200));
-    const solanaTx = generateSolanaTx();
+    const memoPayload = buildSealPayload(p, txHash, signature);
+    let solanaTxId = null;
+    let onChain = false;
+
+    try {
+      solanaTxId = await postMemoTransaction(memoPayload);
+      onChain = true;
+      console.log('✅ Real Solana TX:', solanaTxId);
+    } catch (solanaErr) {
+      console.warn('Solana TX failed, falling back to simulated:', solanaErr.message);
+      const chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+      solanaTxId = '';
+      for (let i = 0; i < 88; i++) solanaTxId += chars[Math.floor(Math.random() * chars.length)];
+    }
 
     // Step 5: Confirmed
     await activateStep(4);
     $(steps[3]).classList.remove('active');
     $(steps[3]).classList.add('done');
 
-    $('sealBadge').textContent = 'Sealed ✓';
+    $('sealBadge').textContent = onChain ? 'Sealed ✓' : 'Sealed (sim)';
     $('sealBadge').className = 'status-badge badge-enrolled';
 
-    // Save seal
     const seal = {
       recipient: p.recipient,
+      town: p.town,
+      country: p.country,
       amount: p.amount,
       iban: p.iban,
       ref: p.ref,
       hash: txHash,
       signature: signature.substring(0, 64) + '...',
-      solanaTx: solanaTx,
+      solanaTx: solanaTxId,
+      solanaTxReal: onChain,
+      deviceType: state.deviceType,
       timestamp: Date.now(),
     };
 
     state.seals.push(seal);
     saveState();
 
-    // Show result after delay
     await new Promise(r => setTimeout(r, 600));
 
     btn.classList.add('hidden');
@@ -393,8 +594,16 @@ $('btnSeal').addEventListener('click', async () => {
 
     $('resultHash').textContent = txHash;
     $('resultSig').textContent = signature.substring(0, 80) + '...';
-    $('resultTx').textContent = solanaTx.substring(0, 32) + '...';
+    $('resultTx').textContent = solanaTxId.substring(0, 44) + '...';
+    $('resultTxConfirm').textContent = onChain ? 'CONFIRMED on Devnet ✓' : 'SIMULATED (no SOL balance)';
+    $('resultTxConfirm').style.color = onChain ? 'var(--accent-light)' : 'var(--amber)';
+    $('resultDeviceType').textContent = state.deviceType;
+    $('resultChannel').textContent = state.deviceType === 'SOLANA_SEEKER' ? 'INDEPENDENT_DEVICE (Seed Vault)' : 'INDEPENDENT_DEVICE (WebAuthn)';
     $('resultTime').textContent = new Date().toISOString();
+
+    state._lastTxId = solanaTxId;
+    state._lastTxReal = onChain;
+
     $('sealResult').classList.remove('hidden');
 
   } catch (err) {
@@ -404,7 +613,6 @@ $('btnSeal').addEventListener('click', async () => {
     $('sealBadge').style.cssText = 'color: var(--red); border-color: var(--red);';
     btn.disabled = false;
 
-    // Reset steps
     document.querySelectorAll('.seal-step').forEach(s => {
       s.classList.remove('active', 'done');
     });
@@ -412,11 +620,9 @@ $('btnSeal').addEventListener('click', async () => {
   }
 });
 
-// Open Solana explorer (simulated link)
 function openSolanaExplorer() {
-  const lastSeal = state.seals[state.seals.length - 1];
-  if (lastSeal) {
-    window.open(`https://explorer.solana.com/tx/${lastSeal.solanaTx}?cluster=devnet`, '_blank');
+  if (state._lastTxId) {
+    window.open(`https://explorer.solana.com/tx/${state._lastTxId}?cluster=devnet`, '_blank');
   }
 }
 window.openSolanaExplorer = openSolanaExplorer;
@@ -425,12 +631,10 @@ window.openSolanaExplorer = openSolanaExplorer;
 // UTILITY
 // ============================================================
 
-// Copy wallet address
 function copyWallet() {
   if (state.walletAddr && navigator.clipboard) {
     navigator.clipboard.writeText(state.walletAddr).then(() => {
-      const el = $('walletDisplay');
-      const hint = el.querySelector('.copy-hint');
+      const hint = $('walletDisplay').querySelector('.copy-hint');
       if (hint) {
         hint.textContent = 'Copied ✓';
         setTimeout(() => hint.textContent = 'Tap to copy', 2000);
@@ -440,7 +644,28 @@ function copyWallet() {
 }
 window.copyWallet = copyWallet;
 
-// Reset
+$('btnAirdrop').addEventListener('click', async () => {
+  const btn = $('btnAirdrop');
+  btn.disabled = true;
+  btn.textContent = '💧 Requesting airdrop...';
+
+  const success = await requestAirdrop();
+  if (success) {
+    btn.textContent = '💧 Airdrop received ✓';
+    btn.style.color = 'var(--accent-light)';
+    updateSettingsView();
+  } else {
+    btn.textContent = '💧 Airdrop failed — try again';
+    btn.style.color = 'var(--red)';
+  }
+
+  setTimeout(() => {
+    btn.disabled = false;
+    btn.textContent = '💧 Request Devnet Airdrop (1 SOL)';
+    btn.style.color = '';
+  }, 3000);
+});
+
 $('btnReset').addEventListener('click', () => {
   if (confirm('Remove all keys and seal history? This cannot be undone.')) {
     localStorage.removeItem('alpensign_state');
@@ -454,19 +679,22 @@ $('btnReset').addEventListener('click', () => {
 
 function init() {
   loadState();
+  detectDevice();
+  const solanaReady = initSolana();
   updateHeaderBadge();
 
+  if (solanaReady) {
+    console.log('Solana wallet:', solanaKeypair.publicKey.toBase58());
+  }
+
   if (state.enrolled) {
-    // Show dashboard
     navigateTo('home');
   } else if (state.credId) {
-    // Credential exists but not enrolled — show step 2
     $('view-enroll').classList.add('active');
     $('enroll-1').classList.remove('active');
     $('enroll-2').classList.add('active');
     $('walletAddr').textContent = state.walletAddr;
   } else {
-    // Fresh start — show enrollment
     $('view-enroll').classList.add('active');
   }
 }

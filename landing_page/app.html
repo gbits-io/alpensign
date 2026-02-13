@@ -8,6 +8,7 @@
 <title>AlpenSign</title>
 <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon/favicon-32x32.png">
 <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@solana/web3.js@1.98.0/lib/index.iife.min.js"></script>
 <style>
   :root {
     --bg: #0f1219;
@@ -623,6 +624,41 @@
 
   /* ---- Utility ---- */
   .hidden { display: none !important; }
+
+  /* ---- Device Banner ---- */
+  .device-banner {
+    display: none;
+    padding: 0.6rem 1.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    gap: 0.5rem;
+    align-items: center;
+    border-bottom: 1px solid;
+  }
+
+  .device-banner.show { display: flex; }
+
+  .device-banner.seeker {
+    background: rgba(34, 197, 94, 0.08);
+    border-color: rgba(34, 197, 94, 0.2);
+    color: var(--accent-light);
+  }
+
+  .device-banner.warning {
+    background: rgba(245, 158, 11, 0.08);
+    border-color: rgba(245, 158, 11, 0.2);
+    color: var(--amber);
+  }
+
+  .device-banner.desktop {
+    background: rgba(239, 68, 68, 0.06);
+    border-color: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+  }
+
+  .device-banner-icon { font-size: 1rem; min-width: 20px; }
+  .device-banner-text { flex: 1; line-height: 1.4; }
+  .device-banner-model { font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; opacity: 0.7; }
   .text-center { text-align: center; }
   .text-secondary { color: var(--text-secondary); }
   .text-dim { color: var(--text-dim); }
@@ -673,6 +709,15 @@
       ALPENSIGN
     </div>
     <span id="headerBadge" class="status-badge badge-not-enrolled">Not Enrolled</span>
+  </div>
+
+  <!-- Device Detection Banner -->
+  <div id="deviceBanner" class="device-banner">
+    <span class="device-banner-icon" id="deviceIcon"></span>
+    <div class="device-banner-text">
+      <div id="deviceMessage"></div>
+      <div class="device-banner-model" id="deviceModel"></div>
+    </div>
   </div>
 
   <!-- ==================== NOTIFICATION BANNER ==================== -->
@@ -824,6 +869,10 @@
         <div class="payment-value" id="sealRecipient">ABC GmbH</div>
       </div>
       <div class="payment-row">
+        <div class="payment-label">Location</div>
+        <div class="payment-value reference" id="sealLocation" style="font-size: 0.9rem;">Zürich, CH</div>
+      </div>
+      <div class="payment-row">
         <div class="payment-label">Amount</div>
         <div class="payment-value amount" id="sealAmount">CHF 10,500.00</div>
       </div>
@@ -870,7 +919,7 @@
         <div class="seal-step-icon">4</div>
         <div>
           <div class="seal-step-text">Post Seal to Solana</div>
-          <div class="seal-step-sub">SAS attestation via Helius RPC</div>
+          <div class="seal-step-sub">Memo transaction on Devnet</div>
         </div>
       </div>
       <div class="seal-step" id="step-confirm">
@@ -889,13 +938,25 @@
       <div class="text-center text-secondary font-sm mt-1">Immutable proof posted to Solana</div>
 
       <div class="tech-console mt-2">
-        <div class="console-header">// CRYPTOGRAPHIC PROOF</div>
+        <div class="console-header">// ALPENSIGN SEAL v1</div>
         <div class="console-row">
           <div class="console-label">Algorithm</div>
           <div class="console-val">ECDSA-SHA256 (P-256)</div>
         </div>
         <div class="console-row">
-          <div class="console-label">Transaction Hash</div>
+          <div class="console-label">Auth Method</div>
+          <div class="console-val">BIOMETRIC_HARDWARE</div>
+        </div>
+        <div class="console-row">
+          <div class="console-label">Auth Channel</div>
+          <div class="console-val" id="resultChannel">INDEPENDENT_DEVICE</div>
+        </div>
+        <div class="console-row">
+          <div class="console-label">Device Type</div>
+          <div class="console-val" id="resultDeviceType">SOLANA_SEEKER</div>
+        </div>
+        <div class="console-row">
+          <div class="console-label">Payment Hash</div>
           <div class="console-val hash" id="resultHash"></div>
         </div>
         <div class="console-row">
@@ -906,11 +967,19 @@
           <div class="console-label">Solana TX</div>
           <div class="console-val link" id="resultTx" onclick="openSolanaExplorer()"></div>
         </div>
+        <div class="console-row" id="resultTxStatus">
+          <div class="console-label">TX Status</div>
+          <div class="console-val hash" id="resultTxConfirm"></div>
+        </div>
         <div class="console-row">
           <div class="console-label">Timestamp</div>
           <div class="console-val" id="resultTime"></div>
         </div>
       </div>
+
+      <button class="btn btn-secondary mt-2" id="btnViewExplorer" onclick="openSolanaExplorer()" style="font-size: 0.85rem;">
+        🔗 View on Solana Explorer
+      </button>
 
       <button class="btn btn-secondary mt-2" onclick="navigateTo('home')">← Back to Dashboard</button>
     </div>
@@ -939,6 +1008,10 @@
         <span class="card-title">Device Info</span>
       </div>
       <div class="info-row">
+        <span class="info-label">Device</span>
+        <span class="info-value font-sm" id="settingsDevice">Detecting...</span>
+      </div>
+      <div class="info-row">
         <span class="info-label">User Agent</span>
         <span class="info-value font-mono font-xs text-dim" id="settingsUA" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;"></span>
       </div>
@@ -946,14 +1019,31 @@
         <span class="info-label">Credential ID</span>
         <span class="info-value font-mono font-xs text-amber" id="settingsCredId" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;">—</span>
       </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Solana Wallet (Devnet)</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Address</span>
+        <span class="info-value font-mono font-xs text-purple" id="settingsSolAddr" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;">—</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Balance</span>
+        <span class="info-value text-purple" id="settingsSolBal">—</span>
+      </div>
       <div class="info-row">
         <span class="info-label">Network</span>
         <span class="info-value text-purple">Solana Devnet</span>
       </div>
       <div class="info-row">
-        <span class="info-label">RPC</span>
-        <span class="info-value font-mono font-xs">Helius (proxy)</span>
+        <span class="info-label">Memo Program</span>
+        <span class="info-value font-mono font-xs text-dim">MemoSq4g...mfcHr</span>
       </div>
+      <button class="btn btn-ghost mt-1" id="btnAirdrop" style="font-size: 0.75rem;">
+        💧 Request Devnet Airdrop (1 SOL)
+      </button>
     </div>
 
     <button class="btn btn-danger mt-2" id="btnReset">
@@ -961,7 +1051,7 @@
     </button>
 
     <div class="text-center mt-3">
-      <div class="font-xs text-dim">AlpenSign v0.2.0 · Solana Seeker Hackathon Monolith</div>
+      <div class="font-xs text-dim">AlpenSign v0.3.0 · Solana Seeker Hackathon Monolith</div>
       <div class="font-xs text-dim mt-1">© 2026 Koivu GmbH · BSL 1.1</div>
     </div>
   </div>
