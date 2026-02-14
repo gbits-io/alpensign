@@ -15,7 +15,7 @@ const MEMO_PROGRAM_ID = 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr';
 const APP_IDENTITY = {
   name: 'AlpenSign',
   uri: window.location.origin,
-  icon: new URL('./images/alpensign_logo_small_dark.png', window.location.href).href,
+  icon: './images/alpensign_logo_small_dark.png',
 };
 
 let solanaConnection = null;
