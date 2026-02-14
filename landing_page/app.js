@@ -1,23 +1,37 @@
 // ============================================================
-// AlpenSign v0.4.0 — Transaction Sealing for Banks
+// AlpenSign v0.5.0 — Transaction Sealing for Banks
 // Solana Seeker Hackathon Monolith · Q1 2026
+//
+// KEY CHANGE: Uses Solana Mobile Wallet Adapter (MWA) to sign
+// and send transactions via the Seeker's real Seed Vault wallet.
+// No more browser-generated keypairs or devnet airdrops.
 // ============================================================
 
 const RP_ID = window.location.hostname;
 
-// ---- Solana Setup ----
+// ---- Solana Constants ----
 const SOLANA_RPC = 'https://api.devnet.solana.com';
 const MEMO_PROGRAM_ID = 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr';
+const APP_IDENTITY = {
+  name: 'AlpenSign',
+  uri: window.location.origin,
+  icon: './images/alpensign_logo_small_dark.png',
+};
+
 let solanaConnection = null;
-let solanaKeypair = null;
-let solanaReady = false;
+
+// ---- MWA (Mobile Wallet Adapter) ----
+let mwaTransact = null;  // loaded dynamically, only on Seeker
+let mwaLoading = false;
+let mwaLoadError = null;
 
 // ---- State ----
 let state = {
   enrolled: false,
   credId: null,
-  walletAddr: null,
-  solanaSecretKey: null,
+  walletAddr: null,       // Real Seed Vault wallet address (base58)
+  mwaAuthToken: null,     // MWA reauthorization token
+  mwaWalletUriBase: null, // Custom wallet URI for faster reconnection
   seals: [],
   currentRequest: null,
   deviceType: 'UNKNOWN',
@@ -31,6 +45,32 @@ const bufferify = (str) => Uint8Array.from(atob(str), c => c.charCodeAt(0));
 const base64ify = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)));
 const hexify = (buf) => Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
 
+// ---- Base58 Encoder (for TX signature display) ----
+const B58_ALPHA = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+function base58encode(bytes) {
+  if (!(bytes instanceof Uint8Array)) bytes = new Uint8Array(bytes);
+  if (bytes.length === 0) return '';
+  let zeros = 0;
+  for (let i = 0; i < bytes.length && bytes[i] === 0; i++) zeros++;
+  const digits = [0];
+  for (let i = zeros; i < bytes.length; i++) {
+    let carry = bytes[i];
+    for (let j = 0; j < digits.length; j++) {
+      carry += digits[j] << 8;
+      digits[j] = carry % 58;
+      carry = (carry / 58) | 0;
+    }
+    while (carry > 0) {
+      digits.push(carry % 58);
+      carry = (carry / 58) | 0;
+    }
+  }
+  let r = '';
+  for (let i = 0; i < zeros; i++) r += '1';
+  for (let i = digits.length - 1; i >= 0; i--) r += B58_ALPHA[digits[i]];
+  return r;
+}
+
 function formatTime(ts) {
   const d = new Date(ts);
   const now = new Date();
@@ -42,7 +82,7 @@ function formatTime(ts) {
     ' ' + d.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' });
 }
 
-function isSeeker() { return state.deviceType === 'SOLANA_SEEKER'; }
+function isSeekerDevice() { return state.deviceType === 'SOLANA_SEEKER'; }
 
 // ============================================================
 // DEVICE DETECTION (Client Hints + UA fallback)
@@ -58,7 +98,6 @@ async function detectDevice() {
   let deviceModel = 'Unknown Device';
   let seekerDetected = false;
 
-  // 1. Primary: User-Agent Client Hints (bypass Chrome UA reduction)
   if (navigator.userAgentData) {
     try {
       const isSolanaBrand = navigator.userAgentData.brands.some(b =>
@@ -68,21 +107,17 @@ async function detectDevice() {
       deviceModel = hints.model || 'Unknown';
       seekerDetected = isSolanaBrand || /seeker|solana/i.test(deviceModel);
     } catch (e) {
-      console.warn('Client Hints failed, falling back to UA string.', e);
+      console.warn('Client Hints failed:', e);
     }
   }
 
-  // 2. Fallback: UA string parsing
   if (!seekerDetected) {
     seekerDetected = /seeker|solanamobile|solana\s*mobile|saga/i.test(ua);
-    const modelMatch = ua.match(/;\s*([^;)]+?)(?:(?:\s+Build\/)|(?:\s*Webkit)|(?:\s*[\);]))/i);
-    if (modelMatch && deviceModel === 'Unknown Device') {
-      deviceModel = modelMatch[1].trim();
-    }
+    const m = ua.match(/;\s*([^;)]+?)(?:(?:\s+Build\/)|(?:\s*Webkit)|(?:\s*[\);]))/i);
+    if (m && deviceModel === 'Unknown Device') deviceModel = m[1].trim();
   }
 
   const isAndroid = /android/i.test(ua);
-  const isIOS = /iphone|ipad|ipod/i.test(ua);
 
   if (seekerDetected) {
     state.deviceType = 'SOLANA_SEEKER';
@@ -96,93 +131,169 @@ async function detectDevice() {
     state.deviceModel = deviceModel;
     banner.className = 'device-banner show warning';
     icon.textContent = '⚠️';
-    msg.innerHTML = 'Non-Seeker device — signatures are <b>not</b> backed by Genesis Token or TEEPIN';
+    msg.innerHTML = 'Non-Seeker device — signatures are <b>not</b> backed by Genesis Token';
     modelEl.textContent = deviceModel;
-  } else if (isIOS) {
+  } else if (/iphone|ipad/i.test(ua)) {
     state.deviceType = 'IOS';
     state.deviceModel = 'iPhone / iPad';
     banner.className = 'device-banner show warning';
     icon.textContent = '⚠️';
-    msg.innerHTML = 'iOS device — no Seed Vault or Genesis Token available';
-    modelEl.textContent = 'Apple Secure Enclave (no Solana integration)';
+    msg.innerHTML = 'iOS device — no Seed Vault or MWA support';
+    modelEl.textContent = 'Apple Secure Enclave';
   } else {
     state.deviceType = 'DESKTOP';
     state.deviceModel = 'Desktop Browser';
     banner.className = 'device-banner show desktop';
     icon.textContent = '🖥️';
-    msg.textContent = 'Desktop browser — demo mode only, no hardware secure element';
-    modelEl.textContent = navigator.platform || 'Unknown platform';
+    msg.textContent = 'Desktop browser — demo mode only';
+    modelEl.textContent = navigator.platform || 'Unknown';
   }
 
   return state.deviceType;
 }
 
 // ============================================================
-// SOLANA WALLET
+// MWA — Mobile Wallet Adapter (loaded dynamically)
 // ============================================================
 
-function initSolana() {
+async function loadMWA() {
+  if (mwaTransact) return true;
+  if (mwaLoadError) return false;
+  if (mwaLoading) {
+    // Wait for existing load
+    while (mwaLoading) await new Promise(r => setTimeout(r, 100));
+    return !!mwaTransact;
+  }
+
+  mwaLoading = true;
+  try {
+    console.log('Loading MWA protocol from esm.sh...');
+    const mod = await import('https://esm.sh/@solana-mobile/mobile-wallet-adapter-protocol@2.2.5');
+    mwaTransact = mod.transact;
+    console.log('✅ MWA protocol loaded');
+    mwaLoading = false;
+    return true;
+  } catch (e) {
+    console.error('❌ MWA load failed:', e);
+    mwaLoadError = e.message || 'Failed to load MWA';
+    mwaLoading = false;
+    return false;
+  }
+}
+
+// Authorize with Seed Vault and get wallet address
+async function mwaAuthorize() {
+  if (!mwaTransact) throw new Error('MWA not loaded');
+
+  const result = await mwaTransact(async (wallet) => {
+    const auth = await wallet.authorize({
+      cluster: 'solana:devnet',
+      identity: APP_IDENTITY,
+      auth_token: state.mwaAuthToken || undefined,
+    });
+    return auth;
+  }, state.mwaWalletUriBase ? { baseUri: state.mwaWalletUriBase } : undefined);
+
+  // Decode base64 address → PublicKey → base58
+  const addrBytes = Uint8Array.from(atob(result.accounts[0].address), c => c.charCodeAt(0));
+  const walletBase58 = base58encode(addrBytes);
+
+  // Store tokens for reauthorization
+  state.mwaAuthToken = result.auth_token;
+  if (result.wallet_uri_base) state.mwaWalletUriBase = result.wallet_uri_base;
+  state.walletAddr = walletBase58;
+  saveState();
+
+  console.log('✅ MWA authorized. Wallet:', walletBase58);
+  return walletBase58;
+}
+
+// Sign and send a memo transaction via Seed Vault
+async function mwaSignAndSend(memoPayload, walletBase58) {
+  if (!mwaTransact) throw new Error('MWA not loaded');
+
+  // 1. Build the unsigned transaction using global solanaWeb3
+  const memoInstruction = new solanaWeb3.TransactionInstruction({
+    keys: [],
+    programId: new solanaWeb3.PublicKey(MEMO_PROGRAM_ID),
+    data: new TextEncoder().encode(memoPayload),
+  });
+
+  const { blockhash, lastValidBlockHeight } = await solanaConnection.getLatestBlockhash('confirmed');
+
+  const transaction = new solanaWeb3.Transaction({
+    recentBlockhash: blockhash,
+    feePayer: new solanaWeb3.PublicKey(walletBase58),
+  }).add(memoInstruction);
+
+  // 2. Serialize unsigned transaction to base64
+  const serialized = transaction.serialize({
+    requireAllSignatures: false,
+    verifySignatures: false,
+  });
+  const txBase64 = btoa(String.fromCharCode(...serialized));
+  console.log('TX serialized:', serialized.length, 'bytes');
+
+  // 3. Send to Seed Vault via MWA
+  const signatureBase64 = await mwaTransact(async (wallet) => {
+    // Reauthorize in this session
+    const auth = await wallet.authorize({
+      cluster: 'solana:devnet',
+      identity: APP_IDENTITY,
+      auth_token: state.mwaAuthToken || undefined,
+    });
+    state.mwaAuthToken = auth.auth_token;
+    if (auth.wallet_uri_base) state.mwaWalletUriBase = auth.wallet_uri_base;
+    saveState();
+
+    // Wallet signs with Seed Vault and submits to Solana
+    const result = await wallet.signAndSendTransactions({
+      payloads: [txBase64],
+    });
+
+    return result[0]; // first (only) signature
+  }, state.mwaWalletUriBase ? { baseUri: state.mwaWalletUriBase } : undefined);
+
+  // 4. Convert signature to base58 for Explorer
+  const sigBytes = (signatureBase64 instanceof Uint8Array)
+    ? signatureBase64
+    : Uint8Array.from(atob(signatureBase64), c => c.charCodeAt(0));
+  const txSignature = base58encode(sigBytes);
+
+  console.log('✅ TX confirmed. Signature:', txSignature);
+  return txSignature;
+}
+
+// ============================================================
+// SOLANA RPC (read-only, for balance/confirmation checks)
+// ============================================================
+
+function initSolanaRPC() {
   try {
     if (typeof solanaWeb3 === 'undefined') {
       console.warn('solanaWeb3 not loaded');
       return false;
     }
-
     solanaConnection = new solanaWeb3.Connection(SOLANA_RPC, {
       commitment: 'confirmed',
       confirmTransactionInitialTimeout: 30000,
     });
-
-    if (state.solanaSecretKey) {
-      try {
-        const secretArray = new Uint8Array(JSON.parse(state.solanaSecretKey));
-        solanaKeypair = solanaWeb3.Keypair.fromSecretKey(secretArray);
-      } catch (e) {
-        console.warn('Saved keypair invalid, generating new one');
-        solanaKeypair = solanaWeb3.Keypair.generate();
-        state.solanaSecretKey = JSON.stringify(Array.from(solanaKeypair.secretKey));
-        saveState();
-      }
-    } else {
-      solanaKeypair = solanaWeb3.Keypair.generate();
-      state.solanaSecretKey = JSON.stringify(Array.from(solanaKeypair.secretKey));
-      saveState();
-    }
-
-    console.log('Solana wallet:', solanaKeypair.publicKey.toBase58());
     return true;
   } catch (e) {
-    console.error('Solana init failed:', e);
+    console.error('Solana RPC init failed:', e);
     return false;
   }
 }
 
-async function getSolBalance() {
-  if (!solanaConnection || !solanaKeypair) return 0;
+async function getWalletBalance(walletBase58) {
+  if (!solanaConnection || !walletBase58) return -1;
   try {
-    const balance = await solanaConnection.getBalance(solanaKeypair.publicKey);
+    const pubkey = new solanaWeb3.PublicKey(walletBase58);
+    const balance = await solanaConnection.getBalance(pubkey);
     return balance / solanaWeb3.LAMPORTS_PER_SOL;
   } catch (e) {
     console.warn('Balance check failed:', e);
-    return -1; // indicate error
-  }
-}
-
-async function requestAirdrop() {
-  if (!solanaConnection || !solanaKeypair) return false;
-  try {
-    // Request 0.01 SOL = 10,000,000 lamports
-    const sig = await solanaConnection.requestAirdrop(
-      solanaKeypair.publicKey,
-      0.01 * solanaWeb3.LAMPORTS_PER_SOL
-    );
-    console.log('Airdrop requested, sig:', sig);
-    await solanaConnection.confirmTransaction(sig, 'confirmed');
-    console.log('Airdrop confirmed');
-    return true;
-  } catch (e) {
-    console.error('Airdrop failed:', e.message || e);
-    return false;
+    return -1;
   }
 }
 
@@ -200,58 +311,8 @@ function buildMemoPayload(payment, txHash, deviceSignature) {
     ts: Math.floor(Date.now() / 1000),
   };
   const json = JSON.stringify(payload);
-  console.log(`Memo payload: ${json.length} bytes`, json);
+  console.log(`Memo payload: ${json.length} bytes`);
   return json;
-}
-
-async function postMemoTransaction(memoData) {
-  if (!solanaConnection || !solanaKeypair) {
-    throw new Error('Solana not initialized');
-  }
-
-  const balance = await solanaConnection.getBalance(solanaKeypair.publicKey);
-  console.log('Wallet balance (lamports):', balance);
-  if (balance < 5000) {
-    throw new Error('NO_SOL');
-  }
-
-  const encoded = new TextEncoder().encode(memoData);
-  if (encoded.length > 566) {
-    console.warn(`Memo ${encoded.length}B > 566B limit, truncating`);
-    memoData = memoData.substring(0, 500);
-  }
-
-  const memoInstruction = new solanaWeb3.TransactionInstruction({
-    keys: [],
-    programId: new solanaWeb3.PublicKey(MEMO_PROGRAM_ID),
-    data: new TextEncoder().encode(memoData),
-  });
-
-  const transaction = new solanaWeb3.Transaction().add(memoInstruction);
-
-  const { blockhash, lastValidBlockHeight } = await solanaConnection.getLatestBlockhash('confirmed');
-  transaction.recentBlockhash = blockhash;
-  transaction.feePayer = solanaKeypair.publicKey;
-  transaction.sign(solanaKeypair);
-
-  console.log('Sending transaction...');
-  const txSignature = await solanaConnection.sendRawTransaction(
-    transaction.serialize(),
-    { skipPreflight: false, preflightCommitment: 'confirmed' }
-  );
-  console.log('TX sent, signature:', txSignature);
-
-  const confirmation = await solanaConnection.confirmTransaction(
-    { signature: txSignature, blockhash, lastValidBlockHeight },
-    'confirmed'
-  );
-
-  if (confirmation.value && confirmation.value.err) {
-    throw new Error('TX error: ' + JSON.stringify(confirmation.value.err));
-  }
-
-  console.log('TX confirmed:', txSignature);
-  return txSignature;
 }
 
 // ============================================================
@@ -263,7 +324,8 @@ function saveState() {
     enrolled: state.enrolled,
     credId: state.credId,
     walletAddr: state.walletAddr,
-    solanaSecretKey: state.solanaSecretKey,
+    mwaAuthToken: state.mwaAuthToken,
+    mwaWalletUriBase: state.mwaWalletUriBase,
     seals: state.seals,
     welcomeSeen: state.welcomeSeen,
   }));
@@ -276,7 +338,8 @@ function loadState() {
       state.enrolled = saved.enrolled || false;
       state.credId = saved.credId || null;
       state.walletAddr = saved.walletAddr || null;
-      state.solanaSecretKey = saved.solanaSecretKey || null;
+      state.mwaAuthToken = saved.mwaAuthToken || null;
+      state.mwaWalletUriBase = saved.mwaWalletUriBase || null;
       state.seals = saved.seals || [];
       state.welcomeSeen = saved.welcomeSeen || false;
     }
@@ -323,17 +386,22 @@ function updateHeaderBadge() {
 // ============================================================
 
 async function updateHomeView() {
-  const walletAddr = solanaKeypair ? solanaKeypair.publicKey.toBase58() : (state.walletAddr || '—');
-  $('homeWallet').textContent = walletAddr.slice(0, 8) + '...' + walletAddr.slice(-6);
+  const addr = state.walletAddr;
+  $('homeWallet').textContent = addr
+    ? addr.slice(0, 8) + '...' + addr.slice(-6)
+    : '—';
   $('homeSealCount').textContent = state.seals.length;
 
-  const bal = await getSolBalance();
-  if (bal >= 0) {
-    $('homeSolBalance').textContent = bal.toFixed(6) + ' SOL';
-    $('homeSolBalance').style.color = bal > 0 ? 'var(--accent-light)' : 'var(--text-dim)';
+  const wtEl = $('homeWalletType');
+  if (isSeekerDevice() && addr) {
+    wtEl.textContent = 'Seed Vault (Devnet)';
+    wtEl.style.color = 'var(--accent-light)';
+  } else if (addr) {
+    wtEl.textContent = 'Local only';
+    wtEl.style.color = 'var(--amber)';
   } else {
-    $('homeSolBalance').textContent = '— (offline)';
-    $('homeSolBalance').style.color = 'var(--text-dim)';
+    wtEl.textContent = '—';
+    wtEl.style.color = 'var(--text-dim)';
   }
 
   const container = $('homeRecentSeals');
@@ -373,7 +441,6 @@ function updateHistoryView() {
     container.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">No seals recorded</div></div>';
     return;
   }
-
   container.innerHTML = state.seals.slice().reverse().map(sealItemHTML).join('');
 }
 
@@ -385,38 +452,51 @@ async function updateSettingsView() {
   $('settingsUA').textContent = navigator.userAgent.substring(0, 60) + '...';
   $('settingsCredId').textContent = state.credId ? state.credId.substring(0, 24) + '...' : '—';
   $('settingsDevice').textContent = `${state.deviceType} (${state.deviceModel})`;
-  $('settingsDevice').style.color = isSeeker() ? 'var(--accent-light)' : 'var(--amber)';
+  $('settingsDevice').style.color = isSeekerDevice() ? 'var(--accent-light)' : 'var(--amber)';
 
-  if (solanaKeypair) {
-    const addr = solanaKeypair.publicKey.toBase58();
-    $('settingsSolAddr').textContent = addr.substring(0, 12) + '...' + addr.slice(-6);
-    const bal = await getSolBalance();
-    if (bal >= 0) {
-      $('settingsSolBal').textContent = bal.toFixed(6) + ' SOL';
-      $('settingsSolBal').style.color = bal > 0 ? 'var(--accent-light)' : 'var(--red)';
-    } else {
-      $('settingsSolBal').textContent = '— (offline)';
-      $('settingsSolBal').style.color = 'var(--text-dim)';
-    }
+  // Wallet info
+  const badge = $('settingsWalletBadge');
+  const source = $('settingsWalletSource');
+  const addr = $('settingsSolAddr');
+  const reconnectBtn = $('btnReconnectWallet');
+
+  if (state.walletAddr && isSeekerDevice()) {
+    badge.textContent = 'Connected';
+    badge.className = 'status-badge badge-enrolled';
+    source.textContent = 'Seed Vault (MWA)';
+    source.style.color = 'var(--accent-light)';
+    addr.textContent = state.walletAddr.substring(0, 12) + '...' + state.walletAddr.slice(-6);
+    reconnectBtn.classList.remove('hidden');
+  } else if (state.walletAddr) {
+    badge.textContent = 'Local';
+    badge.className = 'status-badge badge-pending';
+    source.textContent = 'Platform Key (no Solana)';
+    source.style.color = 'var(--amber)';
+    addr.textContent = '— (no on-chain wallet)';
+    reconnectBtn.classList.add('hidden');
+  } else {
+    badge.textContent = 'Not Connected';
+    badge.className = 'status-badge badge-not-enrolled';
+    source.textContent = '—';
+    addr.textContent = '—';
+    reconnectBtn.classList.add('hidden');
   }
 }
 
 // ============================================================
-// DEVICE-ADAPTIVE SEAL STEPS
+// DEVICE-ADAPTIVE UI
 // ============================================================
 
 function adaptSealStepsForDevice() {
-  if (isSeeker()) {
-    // Seeker: full trust chain
+  if (isSeekerDevice()) {
     $('step-auth-sub').textContent = 'Seed Vault signing';
     $('step-sign-text').textContent = 'Sign with Seed Vault';
     $('step-sign-sub').textContent = 'ECDSA-SHA256 (P-256) · Hardware-bound';
     $('step-post-text').textContent = 'Post Seal to Solana';
-    $('step-post-sub').textContent = 'Memo transaction on Devnet';
+    $('step-post-sub').textContent = 'Memo via MWA → Seed Vault → Devnet';
     $('step-confirm-text').textContent = 'Seal Confirmed';
     $('step-confirm-sub').textContent = 'Immutable on-chain record';
   } else {
-    // Non-Seeker: local proof only
     $('step-auth-sub').textContent = 'WebAuthn platform authenticator';
     $('step-sign-text').textContent = 'Sign with Platform Key';
     $('step-sign-sub').textContent = 'ECDSA-SHA256 (P-256) · No Genesis Token';
@@ -433,7 +513,7 @@ function adaptEnrollmentForDevice() {
   const tokenLabel = $('enrollTokenLabel');
   const tokenValue = $('enrollTokenValue');
 
-  if (isSeeker()) {
+  if (isSeekerDevice()) {
     device.textContent = 'Solana Seeker';
     device.style.color = 'var(--accent-light)';
     cred.textContent = 'Hardware-Attested (Seed Vault)';
@@ -452,6 +532,24 @@ function adaptEnrollmentForDevice() {
   }
 }
 
+// Adapt enrollment step 2 for device type
+function adaptEnrollStep2() {
+  if (isSeekerDevice()) {
+    $('enroll2Icon').textContent = '🔗';
+    $('enroll2Title').textContent = 'Connect Seed Vault Wallet';
+    $('enroll2Desc').textContent = 'Authorize AlpenSign to use your Seeker\'s Seed Vault wallet for signing Solana transactions.';
+    $('btnConnectWallet').classList.remove('hidden');
+    // Button content kept as original HTML (has SVG icon)
+  } else {
+    $('enroll2Icon').textContent = '🔒';
+    $('enroll2Title').textContent = 'Platform Key Created';
+    $('enroll2Desc').textContent = 'Your device\'s WebAuthn key is ready. On-chain sealing requires a Solana Seeker with Seed Vault.';
+    $('btnConnectWallet').classList.add('hidden');
+    $('btnSimulateBank').classList.remove('hidden');
+    $('enrollStatus2').textContent = 'On-chain posting not available without Seeker.';
+  }
+}
+
 // ============================================================
 // WELCOME SCREEN
 // ============================================================
@@ -467,44 +565,41 @@ $('btnGetStarted').addEventListener('click', () => {
 // ENROLLMENT FLOW
 // ============================================================
 
+// Step 1: Create WebAuthn credential
 $('btnInitVault').addEventListener('click', async () => {
   const statusEl = $('enrollStatus1');
   const btn = $('btnInitVault');
   btn.disabled = true;
-  statusEl.textContent = isSeeker() ? 'Requesting Seeker attestation...' : 'Requesting platform attestation...';
+  statusEl.textContent = isSeekerDevice()
+    ? 'Requesting Seeker attestation...'
+    : 'Requesting platform attestation...';
 
   const challenge = window.crypto.getRandomValues(new Uint8Array(32));
   const userID = window.crypto.getRandomValues(new Uint8Array(16));
 
-  const options = {
-    publicKey: {
-      challenge,
-      rp: { name: "AlpenSign", id: RP_ID },
-      user: { id: userID, name: "seeker-user", displayName: "Seeker Holder" },
-      pubKeyCredParams: [{ alg: -7, type: "public-key" }],
-      authenticatorSelection: {
-        authenticatorAttachment: "platform",
-        userVerification: "required"
-      },
-      attestation: "direct"
-    }
-  };
-
   try {
-    const cred = await navigator.credentials.create(options);
+    const cred = await navigator.credentials.create({
+      publicKey: {
+        challenge,
+        rp: { name: "AlpenSign", id: RP_ID },
+        user: { id: userID, name: "seeker-user", displayName: "Seeker Holder" },
+        pubKeyCredParams: [{ alg: -7, type: "public-key" }],
+        authenticatorSelection: {
+          authenticatorAttachment: "platform",
+          userVerification: "required"
+        },
+        attestation: "direct"
+      }
+    });
+
     state.credId = base64ify(cred.rawId);
-
-    state.walletAddr = solanaKeypair
-      ? solanaKeypair.publicKey.toBase58()
-      : (() => { const c = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'; let a = ''; for (let i = 0; i < 44; i++) a += c[Math.floor(Math.random() * c.length)]; return a; })();
-
     saveState();
     statusEl.innerHTML = '<span style="color: var(--accent-light);">✓ Key pair created</span>';
 
     setTimeout(() => {
       $('enroll-1').classList.remove('active');
       $('enroll-2').classList.add('active');
-      $('walletAddr').textContent = state.walletAddr;
+      adaptEnrollStep2();
       updateHeaderBadge();
     }, 800);
 
@@ -515,22 +610,56 @@ $('btnInitVault').addEventListener('click', async () => {
   }
 });
 
+// Step 2: Connect Seed Vault wallet (Seeker only)
+$('btnConnectWallet').addEventListener('click', async () => {
+  const btn = $('btnConnectWallet');
+  const statusEl = $('enrollStatus2');
+  btn.disabled = true;
+  statusEl.textContent = 'Loading MWA protocol...';
+
+  try {
+    const loaded = await loadMWA();
+    if (!loaded) {
+      statusEl.textContent = 'MWA load failed: ' + (mwaLoadError || 'unknown');
+      btn.disabled = false;
+      return;
+    }
+
+    statusEl.textContent = 'Opening Seed Vault...';
+    const walletAddr = await mwaAuthorize();
+
+    // Show wallet address
+    $('walletDisplay').classList.remove('hidden');
+    $('walletAddr').textContent = walletAddr;
+    statusEl.innerHTML = `<span style="color: var(--accent-light);">✓ Wallet connected</span>`;
+
+    // Show bank confirm button
+    $('btnSimulateBank').classList.remove('hidden');
+
+  } catch (err) {
+    console.error('MWA authorize failed:', err);
+    statusEl.textContent = 'Wallet connection failed: ' + (err.message || err);
+    btn.disabled = false;
+  }
+});
+
+// Step 2b: Bank confirms enrollment (simulated)
 $('btnSimulateBank').addEventListener('click', () => {
   const btn = $('btnSimulateBank');
   const statusEl = $('enrollStatus2');
 
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Bank verifying...';
-  statusEl.textContent = isSeeker()
+  statusEl.textContent = isSeekerDevice()
     ? 'Verifying Genesis Token + issuing credential...'
     : 'Verifying device attestation...';
 
   setTimeout(() => {
-    statusEl.innerHTML = isSeeker()
+    statusEl.innerHTML = isSeekerDevice()
       ? '<span style="color: var(--accent-light);">✓ SAS Credential issued</span>'
       : '<span style="color: var(--amber);">✓ Platform credential registered</span>';
     setTimeout(() => {
-      if (isSeeker()) {
+      if (isSeekerDevice()) {
         statusEl.innerHTML += '<br><span style="color: var(--purple);">✓ Client NFT minted (soulbound)</span>';
       }
       setTimeout(() => {
@@ -566,10 +695,8 @@ const samplePayments = [
 $('btnSimulateRequest').addEventListener('click', () => {
   const payment = samplePayments[Math.floor(Math.random() * samplePayments.length)];
   state.currentRequest = payment;
-
   $('notifBody').textContent = `${payment.amount} to ${payment.recipient}`;
   $('notification').classList.add('show');
-
   setTimeout(() => { $('notification').classList.remove('show'); }, 5000);
 });
 
@@ -584,7 +711,7 @@ function openSealRequest() {
   $('sealIban').textContent = p.iban;
   $('sealReference').textContent = p.ref;
 
-  // Reset seal view
+  // Reset
   $('btnSeal').classList.remove('hidden');
   $('btnSeal').disabled = false;
   $('btnSeal').innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 11c0-1.1-.9-2-2-2s-2 .9-2 2 .9 2 2 2 2-.9 2-2z"/><path d="M18.5 8A6.5 6.5 0 0 0 12 1.5 6.5 6.5 0 0 0 5.5 8v2H4v10h16V10h-1.5V8z"/></svg> Seal with Biometric';
@@ -594,11 +721,7 @@ function openSealRequest() {
   $('sealBadge').className = 'status-badge badge-pending';
   $('sealPaymentCard').style.display = '';
 
-  document.querySelectorAll('.seal-step').forEach(s => {
-    s.classList.remove('active', 'done');
-  });
-
-  // Adapt step labels for this device
+  document.querySelectorAll('.seal-step').forEach(s => s.classList.remove('active', 'done'));
   adaptSealStepsForDevice();
 
   navigateTo('seal');
@@ -624,7 +747,7 @@ $('btnSeal').addEventListener('click', async () => {
   }
 
   try {
-    // Step 1: Biometric auth
+    // Step 1: Biometric auth + WebAuthn signature
     await activateStep(0);
 
     const p = state.currentRequest;
@@ -635,7 +758,6 @@ $('btnSeal').addEventListener('click', async () => {
     const challengeBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(txData));
     const txHash = hexify(challengeBuffer);
 
-    // WebAuthn assertion (triggers biometric)
     const assertion = await navigator.credentials.get({
       publicKey: {
         challenge: new Uint8Array(challengeBuffer),
@@ -644,7 +766,6 @@ $('btnSeal').addEventListener('click', async () => {
         userVerification: "required"
       }
     });
-
     const signature = base64ify(assertion.response.signature);
 
     // Step 2: Hash
@@ -653,33 +774,36 @@ $('btnSeal').addEventListener('click', async () => {
     // Step 3: Sign
     await activateStep(2);
 
-    // Step 4: Post / Record
+    // Step 4: Post to Solana (Seeker) or record locally (other)
     await activateStep(3);
 
     let solanaTxId = null;
     let onChain = false;
     let failReason = '';
 
-    if (isSeeker() && solanaReady) {
-      // Seeker: attempt real Solana posting
+    if (isSeekerDevice() && state.walletAddr) {
       $('sealBadge').textContent = 'Posting...';
       const memoPayload = buildMemoPayload(p, txHash, signature);
 
       try {
-        solanaTxId = await postMemoTransaction(memoPayload);
+        // Ensure MWA is loaded
+        const loaded = await loadMWA();
+        if (!loaded) throw new Error('MWA protocol not available');
+
+        // Sign and send via Seed Vault
+        solanaTxId = await mwaSignAndSend(memoPayload, state.walletAddr);
         onChain = true;
         console.log('✅ On-chain TX:', solanaTxId);
       } catch (solanaErr) {
-        failReason = solanaErr.message;
-        console.warn('Solana TX failed:', failReason);
+        failReason = solanaErr.message || String(solanaErr);
+        console.warn('MWA TX failed:', failReason);
       }
-    } else if (!isSeeker()) {
-      // Non-Seeker: local proof only (no Solana posting)
+    } else if (!isSeekerDevice()) {
       $('sealBadge').textContent = 'Recording...';
       failReason = 'NON_SEEKER';
-      await new Promise(r => setTimeout(r, 800)); // brief pause for UX
+      await new Promise(r => setTimeout(r, 800));
     } else {
-      failReason = 'Solana not available';
+      failReason = 'Wallet not connected';
       await new Promise(r => setTimeout(r, 800));
     }
 
@@ -690,14 +814,14 @@ $('btnSeal').addEventListener('click', async () => {
 
     if (onChain) {
       $('sealBadge').textContent = 'Sealed ✓';
-    } else if (!isSeeker()) {
+    } else if (!isSeekerDevice()) {
       $('sealBadge').textContent = 'Local ✓';
     } else {
       $('sealBadge').textContent = 'Sealed (local)';
     }
     $('sealBadge').className = 'status-badge badge-enrolled';
 
-    // Save seal record
+    // Save seal
     const seal = {
       recipient: p.recipient,
       town: p.town,
@@ -720,15 +844,13 @@ $('btnSeal').addEventListener('click', async () => {
 
     // Show result
     await new Promise(r => setTimeout(r, 600));
-
     btn.classList.add('hidden');
     $('sealProgress').classList.add('hidden');
 
-    // Populate result
     $('resultHash').textContent = txHash;
     $('resultSig').textContent = signature.substring(0, 80) + '...';
     $('resultDeviceType').textContent = state.deviceType;
-    $('resultChannel').textContent = isSeeker()
+    $('resultChannel').textContent = isSeekerDevice()
       ? 'INDEPENDENT_DEVICE (Seed Vault)'
       : 'INDEPENDENT_DEVICE (WebAuthn)';
     $('resultTime').textContent = new Date().toISOString();
@@ -739,13 +861,13 @@ $('btnSeal').addEventListener('click', async () => {
     if (onChain) {
       titleEl.textContent = 'Transaction Sealed';
       titleEl.style.color = 'var(--accent-light)';
-      subEl.textContent = 'Immutable proof posted to Solana Devnet';
+      subEl.textContent = 'Immutable proof posted to Solana Devnet via Seed Vault';
       $('resultTx').textContent = solanaTxId;
       $('resultTx').style.cursor = 'pointer';
       $('resultTxConfirm').textContent = 'CONFIRMED on Devnet ✓';
       $('resultTxConfirm').style.color = 'var(--accent-light)';
       $('btnViewExplorer').classList.remove('hidden');
-    } else if (!isSeeker()) {
+    } else if (!isSeekerDevice()) {
       titleEl.textContent = 'Local Proof Created';
       titleEl.style.color = 'var(--amber)';
       subEl.textContent = 'Signed with platform key — not posted to Solana (requires Seeker)';
@@ -755,15 +877,12 @@ $('btnSeal').addEventListener('click', async () => {
       $('resultTxConfirm').style.color = 'var(--amber)';
       $('btnViewExplorer').classList.add('hidden');
     } else {
-      // Seeker but Solana failed
       titleEl.textContent = 'Seal Created (Local)';
       titleEl.style.color = 'var(--amber)';
-      subEl.textContent = 'Signed by Seed Vault but could not post to Solana';
+      subEl.textContent = 'Seed Vault signing succeeded but Solana posting failed';
       $('resultTx').textContent = '—';
       $('resultTx').style.cursor = 'default';
-      $('resultTxConfirm').textContent = failReason === 'NO_SOL'
-        ? 'NOT POSTED — wallet has no SOL. Use Settings → Airdrop.'
-        : 'NOT POSTED — ' + (failReason || 'Solana unavailable');
+      $('resultTxConfirm').textContent = 'NOT POSTED — ' + (failReason || 'unknown error');
       $('resultTxConfirm').style.color = 'var(--amber)';
       $('btnViewExplorer').classList.add('hidden');
     }
@@ -776,10 +895,7 @@ $('btnSeal').addEventListener('click', async () => {
     $('sealBadge').className = 'status-badge';
     $('sealBadge').style.cssText = 'color: var(--red); border-color: var(--red);';
     btn.disabled = false;
-
-    document.querySelectorAll('.seal-step').forEach(s => {
-      s.classList.remove('active', 'done');
-    });
+    document.querySelectorAll('.seal-step').forEach(s => s.classList.remove('active', 'done'));
     $('sealProgress').classList.add('hidden');
   }
 });
@@ -792,9 +908,40 @@ function openSolanaExplorer() {
 window.openSolanaExplorer = openSolanaExplorer;
 
 // ============================================================
-// UTILITY
+// SETTINGS ACTIONS
 // ============================================================
 
+// Reconnect Seed Vault wallet
+$('btnReconnectWallet').addEventListener('click', async () => {
+  const btn = $('btnReconnectWallet');
+  btn.disabled = true;
+  btn.textContent = '🔗 Connecting...';
+
+  try {
+    const loaded = await loadMWA();
+    if (!loaded) throw new Error(mwaLoadError || 'MWA not available');
+    const addr = await mwaAuthorize();
+    btn.textContent = '✅ Connected: ' + addr.substring(0, 8) + '...';
+    await updateSettingsView();
+  } catch (e) {
+    btn.textContent = '❌ Failed: ' + (e.message || e);
+  }
+
+  setTimeout(() => {
+    btn.disabled = false;
+    btn.textContent = '🔗 Reconnect Seed Vault Wallet';
+  }, 4000);
+});
+
+// Reset
+$('btnReset').addEventListener('click', () => {
+  if (confirm('Remove all keys and seal history? This cannot be undone.')) {
+    localStorage.removeItem('alpensign_state');
+    window.location.reload();
+  }
+});
+
+// Copy wallet address
 function copyWallet() {
   if (state.walletAddr && navigator.clipboard) {
     navigator.clipboard.writeText(state.walletAddr).then(() => {
@@ -808,47 +955,6 @@ function copyWallet() {
 }
 window.copyWallet = copyWallet;
 
-// Airdrop with retry
-$('btnAirdrop').addEventListener('click', async () => {
-  const btn = $('btnAirdrop');
-  btn.disabled = true;
-  btn.textContent = '💧 Requesting airdrop...';
-
-  let success = await requestAirdrop();
-
-  // Retry once on failure
-  if (!success) {
-    btn.textContent = '💧 Retrying...';
-    await new Promise(r => setTimeout(r, 2000));
-    success = await requestAirdrop();
-  }
-
-  if (success) {
-    btn.textContent = '✅ Airdrop received!';
-    btn.style.color = 'var(--accent-light)';
-    await updateSettingsView();
-  } else {
-    // Show faucet fallback
-    const addr = solanaKeypair ? solanaKeypair.publicKey.toBase58() : '';
-    btn.innerHTML = '❌ Airdrop failed — <a href="https://faucet.solana.com/?amount=0.01&address=' + addr + '&cluster=devnet" target="_blank" style="color:var(--purple);text-decoration:underline;">use web faucet</a>';
-    btn.style.color = 'var(--red)';
-  }
-
-  setTimeout(() => {
-    btn.disabled = false;
-    btn.textContent = '💧 Request Devnet Airdrop (0.01 SOL)';
-    btn.style.color = '';
-  }, 8000);
-});
-
-// Reset
-$('btnReset').addEventListener('click', () => {
-  if (confirm('Remove all keys and seal history? This cannot be undone.')) {
-    localStorage.removeItem('alpensign_state');
-    window.location.reload();
-  }
-});
-
 // ============================================================
 // INIT
 // ============================================================
@@ -856,14 +962,14 @@ $('btnReset').addEventListener('click', () => {
 async function init() {
   loadState();
   await detectDevice();
-  solanaReady = initSolana();
+  initSolanaRPC();
   updateHeaderBadge();
 
-  if (solanaReady) {
-    console.log('Solana wallet:', solanaKeypair.publicKey.toBase58());
-    getSolBalance().then(bal => {
-      if (bal === 0) console.log('⚠️ No SOL. Use Settings → Airdrop.');
-      else if (bal > 0) console.log('SOL balance:', bal);
+  // Pre-load MWA on Seeker
+  if (isSeekerDevice()) {
+    loadMWA().then(ok => {
+      if (ok) console.log('MWA pre-loaded');
+      else console.warn('MWA pre-load failed (will retry on demand)');
     });
   }
 
@@ -874,7 +980,12 @@ async function init() {
     $('view-enroll').classList.add('active');
     $('enroll-1').classList.remove('active');
     $('enroll-2').classList.add('active');
-    $('walletAddr').textContent = state.walletAddr;
+    adaptEnrollStep2();
+    if (state.walletAddr) {
+      $('walletDisplay').classList.remove('hidden');
+      $('walletAddr').textContent = state.walletAddr;
+      $('btnSimulateBank').classList.remove('hidden');
+    }
   } else if (state.welcomeSeen) {
     $('view-enroll').classList.add('active');
   } else {

@@ -859,24 +859,28 @@
       <div id="enrollStatus1" class="text-center text-secondary font-sm mt-1"></div>
     </div>
 
-    <!-- Step 2: Show Wallet Address -->
+    <!-- Step 2: Connect Wallet / Show Info -->
     <div id="enroll-2" class="enroll-step">
       <div class="step-indicator">
         <div class="step-dot done"></div>
         <div class="step-dot current"></div>
         <div class="step-dot"></div>
       </div>
-      <div class="enroll-icon">📋</div>
-      <div class="enroll-title">Register with Your Bank</div>
-      <div class="enroll-desc">
-        Provide this Solana wallet address to your bank's mobile banking app to link your Seeker.
+      <div class="enroll-icon" id="enroll2Icon">🔗</div>
+      <div class="enroll-title" id="enroll2Title">Connect Seed Vault Wallet</div>
+      <div class="enroll-desc" id="enroll2Desc">
+        Authorize AlpenSign to use your Seeker's Seed Vault wallet for signing Solana transactions.
       </div>
-      <div class="wallet-display" id="walletDisplay" onclick="copyWallet()">
+      <div class="wallet-display hidden" id="walletDisplay" onclick="copyWallet()">
         <span id="walletAddr"></span>
         <span class="copy-hint">Tap to copy</span>
       </div>
-      <button class="btn btn-amber mt-2" id="btnSimulateBank">Simulate: Bank Confirms Enrollment</button>
-      <div id="enrollStatus2" class="text-center text-secondary font-sm mt-1">Waiting for bank verification...</div>
+      <button class="btn btn-seal mt-2" id="btnConnectWallet">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4h-4z"/></svg>
+        Connect Seed Vault
+      </button>
+      <button class="btn btn-amber mt-2 hidden" id="btnSimulateBank">Simulate: Bank Confirms Enrollment</button>
+      <div id="enrollStatus2" class="text-center text-secondary font-sm mt-1"></div>
     </div>
 
     <!-- Step 3: Enrolled -->
@@ -931,8 +935,8 @@
         <span class="info-value text-green" id="homeSealCount">0</span>
       </div>
       <div class="info-row">
-        <span class="info-label">SOL Balance</span>
-        <span class="info-value text-purple" id="homeSolBalance">0.0100</span>
+        <span class="info-label">On-chain</span>
+        <span class="info-value" id="homeWalletType">—</span>
       </div>
     </div>
 
@@ -1130,15 +1134,16 @@
 
     <div class="card">
       <div class="card-header">
-        <span class="card-title">Solana Wallet (Devnet)</span>
+        <span class="card-title">Solana Wallet</span>
+        <span class="status-badge" id="settingsWalletBadge" style="font-size:0.55rem;">Not Connected</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Source</span>
+        <span class="info-value font-sm" id="settingsWalletSource">—</span>
       </div>
       <div class="info-row">
         <span class="info-label">Address</span>
         <span class="info-value font-mono font-xs text-purple" id="settingsSolAddr" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;">—</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Balance</span>
-        <span class="info-value text-purple" id="settingsSolBal">—</span>
       </div>
       <div class="info-row">
         <span class="info-label">Network</span>
@@ -1148,8 +1153,8 @@
         <span class="info-label">Memo Program</span>
         <span class="info-value font-mono font-xs text-dim">MemoSq4g...mfcHr</span>
       </div>
-      <button class="btn btn-ghost mt-1" id="btnAirdrop" style="font-size: 0.75rem;">
-        💧 Request Devnet Airdrop (0.01 SOL)
+      <button class="btn btn-ghost mt-1 hidden" id="btnReconnectWallet" style="font-size: 0.75rem;">
+        🔗 Reconnect Seed Vault Wallet
       </button>
     </div>
 
@@ -1158,7 +1163,7 @@
     </button>
 
     <div class="text-center mt-3">
-      <div class="font-xs text-dim">AlpenSign v0.4.0 · Solana Seeker Hackathon Monolith</div>
+      <div class="font-xs text-dim">AlpenSign v0.5.0 · Solana Seeker Hackathon Monolith</div>
       <div class="font-xs text-dim mt-1">© 2026 Koivu GmbH · BSL 1.1</div>
     </div>
   </div>
