@@ -20,10 +20,179 @@ const APP_IDENTITY = {
 
 let solanaConnection = null;
 
-// ---- MWA (Mobile Wallet Adapter) ----
-let mwaTransact = null;  // loaded dynamically, only on Seeker
-let mwaLoading = false;
+// ============================================================
+// MWA — Mobile Wallet Adapter (preloaded in HTML <script type="module">)
+// ============================================================
+
+let mwaTransact = null;
+let mwaReady = false;
 let mwaLoadError = null;
+
+// Check if MWA was preloaded, or wait for it (up to 15s)
+async function loadMWA() {
+  // Already available?
+  if (mwaTransact) return true;
+
+  // Check global set by preload script
+  if (window.__mwaTransact) {
+    mwaTransact = window.__mwaTransact;
+    mwaReady = true;
+    console.log('[MWA] Using preloaded transact()');
+    return true;
+  }
+
+  // Already failed?
+  if (window.__mwaLoadError) {
+    mwaLoadError = window.__mwaLoadError;
+    return false;
+  }
+
+  // Wait for preload to complete (up to 15 seconds)
+  console.log('[MWA] Waiting for preload...');
+  return new Promise((resolve) => {
+    const timeout = setTimeout(() => {
+      console.error('[MWA] Preload timeout (15s)');
+      mwaLoadError = 'Preload timeout';
+      resolve(false);
+    }, 15000);
+
+    window.addEventListener('mwa-ready', () => {
+      clearTimeout(timeout);
+      mwaTransact = window.__mwaTransact;
+      mwaReady = true;
+      console.log('[MWA] Preload completed');
+      resolve(true);
+    }, { once: true });
+
+    window.addEventListener('mwa-failed', () => {
+      clearTimeout(timeout);
+      mwaLoadError = window.__mwaLoadError || 'Preload failed';
+      console.error('[MWA] Preload failed');
+      resolve(false);
+    }, { once: true });
+
+    // Double-check in case event fired before listener was registered
+    if (window.__mwaTransact) {
+      clearTimeout(timeout);
+      mwaTransact = window.__mwaTransact;
+      mwaReady = true;
+      resolve(true);
+    }
+  });
+}
+
+// Timeout wrapper — prevents MWA transact() from hanging forever
+function withTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms / 1000}s`)), ms)
+    ),
+  ]);
+}
+
+// Authorize with Seed Vault and get wallet address
+async function mwaAuthorize() {
+  if (!mwaTransact) throw new Error('MWA not loaded');
+
+  console.log('[MWA] Starting authorize...');
+  const config = state.mwaWalletUriBase
+    ? { baseUri: state.mwaWalletUriBase }
+    : undefined;
+
+  const result = await withTimeout(
+    mwaTransact(async (wallet) => {
+      console.log('[MWA] Session established, calling authorize...');
+      const auth = await wallet.authorize({
+        cluster: 'solana:devnet',
+        identity: APP_IDENTITY,
+        auth_token: state.mwaAuthToken || undefined,
+      });
+      console.log('[MWA] Authorized. Accounts:', auth.accounts.length);
+      return auth;
+    }, config),
+    60000,
+    'MWA authorize'
+  );
+
+  // Decode base64 address → bytes → base58
+  const addrBytes = Uint8Array.from(atob(result.accounts[0].address), c => c.charCodeAt(0));
+  const walletBase58 = base58encode(addrBytes);
+
+  state.mwaAuthToken = result.auth_token;
+  if (result.wallet_uri_base) state.mwaWalletUriBase = result.wallet_uri_base;
+  state.walletAddr = walletBase58;
+  saveState();
+
+  console.log('[MWA] ✅ Wallet:', walletBase58);
+  return walletBase58;
+}
+
+// Sign and send a memo transaction via Seed Vault
+async function mwaSignAndSend(memoPayload, walletBase58) {
+  if (!mwaTransact) throw new Error('MWA not loaded');
+
+  // 1. Build the unsigned transaction
+  console.log('[MWA] Building memo TX...');
+  const memoInstruction = new solanaWeb3.TransactionInstruction({
+    keys: [],
+    programId: new solanaWeb3.PublicKey(MEMO_PROGRAM_ID),
+    data: new TextEncoder().encode(memoPayload),
+  });
+
+  const { blockhash, lastValidBlockHeight } =
+    await solanaConnection.getLatestBlockhash('confirmed');
+
+  const transaction = new solanaWeb3.Transaction({
+    recentBlockhash: blockhash,
+    feePayer: new solanaWeb3.PublicKey(walletBase58),
+  }).add(memoInstruction);
+
+  // 2. Serialize to base64 (unsigned)
+  const serialized = transaction.serialize({
+    requireAllSignatures: false,
+    verifySignatures: false,
+  });
+  const txBase64 = btoa(String.fromCharCode(...serialized));
+  console.log('[MWA] TX serialized:', serialized.length, 'bytes');
+
+  // 3. Send to Seed Vault via MWA (with 60s timeout)
+  const config = state.mwaWalletUriBase
+    ? { baseUri: state.mwaWalletUriBase }
+    : undefined;
+
+  const signatureBase64 = await withTimeout(
+    mwaTransact(async (wallet) => {
+      console.log('[MWA] Session established, reauthorizing...');
+      const auth = await wallet.authorize({
+        cluster: 'solana:devnet',
+        identity: APP_IDENTITY,
+        auth_token: state.mwaAuthToken || undefined,
+      });
+      state.mwaAuthToken = auth.auth_token;
+      if (auth.wallet_uri_base) state.mwaWalletUriBase = auth.wallet_uri_base;
+      saveState();
+
+      console.log('[MWA] Calling signAndSendTransactions...');
+      const result = await wallet.signAndSendTransactions({
+        payloads: [txBase64],
+      });
+      console.log('[MWA] signAndSendTransactions returned');
+      return result[0];
+    }, config),
+    60000,
+    'MWA signAndSend'
+  );
+
+  // 4. Decode signature to base58 for Explorer
+  const sigBytes = (signatureBase64 instanceof Uint8Array)
+    ? signatureBase64
+    : Uint8Array.from(atob(signatureBase64), c => c.charCodeAt(0));
+  const txSignature = base58encode(sigBytes);
+
+  console.log('[MWA] ✅ TX confirmed:', txSignature);
+  return txSignature;
+}
 
 // ---- State ----
 let state = {
@@ -152,117 +321,6 @@ async function detectDevice() {
   return state.deviceType;
 }
 
-// ============================================================
-// MWA — Mobile Wallet Adapter (loaded dynamically)
-// ============================================================
-
-async function loadMWA() {
-  if (mwaTransact) return true;
-  if (mwaLoadError) return false;
-  if (mwaLoading) {
-    // Wait for existing load
-    while (mwaLoading) await new Promise(r => setTimeout(r, 100));
-    return !!mwaTransact;
-  }
-
-  mwaLoading = true;
-  try {
-    console.log('Loading MWA protocol from esm.sh...');
-    const mod = await import('https://esm.sh/@solana-mobile/mobile-wallet-adapter-protocol@2.2.5');
-    mwaTransact = mod.transact;
-    console.log('✅ MWA protocol loaded');
-    mwaLoading = false;
-    return true;
-  } catch (e) {
-    console.error('❌ MWA load failed:', e);
-    mwaLoadError = e.message || 'Failed to load MWA';
-    mwaLoading = false;
-    return false;
-  }
-}
-
-// Authorize with Seed Vault and get wallet address
-async function mwaAuthorize() {
-  if (!mwaTransact) throw new Error('MWA not loaded');
-
-  const result = await mwaTransact(async (wallet) => {
-    const auth = await wallet.authorize({
-      cluster: 'solana:devnet',
-      identity: APP_IDENTITY,
-      auth_token: state.mwaAuthToken || undefined,
-    });
-    return auth;
-  }, state.mwaWalletUriBase ? { baseUri: state.mwaWalletUriBase } : undefined);
-
-  // Decode base64 address → PublicKey → base58
-  const addrBytes = Uint8Array.from(atob(result.accounts[0].address), c => c.charCodeAt(0));
-  const walletBase58 = base58encode(addrBytes);
-
-  // Store tokens for reauthorization
-  state.mwaAuthToken = result.auth_token;
-  if (result.wallet_uri_base) state.mwaWalletUriBase = result.wallet_uri_base;
-  state.walletAddr = walletBase58;
-  saveState();
-
-  console.log('✅ MWA authorized. Wallet:', walletBase58);
-  return walletBase58;
-}
-
-// Sign and send a memo transaction via Seed Vault
-async function mwaSignAndSend(memoPayload, walletBase58) {
-  if (!mwaTransact) throw new Error('MWA not loaded');
-
-  // 1. Build the unsigned transaction using global solanaWeb3
-  const memoInstruction = new solanaWeb3.TransactionInstruction({
-    keys: [],
-    programId: new solanaWeb3.PublicKey(MEMO_PROGRAM_ID),
-    data: new TextEncoder().encode(memoPayload),
-  });
-
-  const { blockhash, lastValidBlockHeight } = await solanaConnection.getLatestBlockhash('confirmed');
-
-  const transaction = new solanaWeb3.Transaction({
-    recentBlockhash: blockhash,
-    feePayer: new solanaWeb3.PublicKey(walletBase58),
-  }).add(memoInstruction);
-
-  // 2. Serialize unsigned transaction to base64
-  const serialized = transaction.serialize({
-    requireAllSignatures: false,
-    verifySignatures: false,
-  });
-  const txBase64 = btoa(String.fromCharCode(...serialized));
-  console.log('TX serialized:', serialized.length, 'bytes');
-
-  // 3. Send to Seed Vault via MWA
-  const signatureBase64 = await mwaTransact(async (wallet) => {
-    // Reauthorize in this session
-    const auth = await wallet.authorize({
-      cluster: 'solana:devnet',
-      identity: APP_IDENTITY,
-      auth_token: state.mwaAuthToken || undefined,
-    });
-    state.mwaAuthToken = auth.auth_token;
-    if (auth.wallet_uri_base) state.mwaWalletUriBase = auth.wallet_uri_base;
-    saveState();
-
-    // Wallet signs with Seed Vault and submits to Solana
-    const result = await wallet.signAndSendTransactions({
-      payloads: [txBase64],
-    });
-
-    return result[0]; // first (only) signature
-  }, state.mwaWalletUriBase ? { baseUri: state.mwaWalletUriBase } : undefined);
-
-  // 4. Convert signature to base58 for Explorer
-  const sigBytes = (signatureBase64 instanceof Uint8Array)
-    ? signatureBase64
-    : Uint8Array.from(atob(signatureBase64), c => c.charCodeAt(0));
-  const txSignature = base58encode(sigBytes);
-
-  console.log('✅ TX confirmed. Signature:', txSignature);
-  return txSignature;
-}
 
 // ============================================================
 // SOLANA RPC (read-only, for balance/confirmation checks)
@@ -481,6 +539,25 @@ async function updateSettingsView() {
     addr.textContent = '—';
     reconnectBtn.classList.add('hidden');
   }
+
+  // MWA diagnostic status
+  const mwaEl = $('settingsMWAStatus');
+  if (mwaReady) {
+    mwaEl.textContent = 'Loaded ✓';
+    mwaEl.style.color = 'var(--accent-light)';
+  } else if (mwaLoadError) {
+    mwaEl.textContent = 'Error: ' + mwaLoadError;
+    mwaEl.style.color = 'var(--red)';
+  } else if (window.__mwaTransact) {
+    mwaEl.textContent = 'Preloaded ✓';
+    mwaEl.style.color = 'var(--accent-light)';
+  } else if (window.__mwaLoadError) {
+    mwaEl.textContent = 'Preload error: ' + window.__mwaLoadError;
+    mwaEl.style.color = 'var(--red)';
+  } else {
+    mwaEl.textContent = 'Loading...';
+    mwaEl.style.color = 'var(--amber)';
+  }
 }
 
 // ============================================================
@@ -616,29 +693,39 @@ $('btnConnectWallet').addEventListener('click', async () => {
   const statusEl = $('enrollStatus2');
   btn.disabled = true;
   statusEl.textContent = 'Loading MWA protocol...';
+  statusEl.style.color = '';
 
   try {
     const loaded = await loadMWA();
     if (!loaded) {
-      statusEl.textContent = 'MWA load failed: ' + (mwaLoadError || 'unknown');
+      statusEl.textContent = '❌ MWA failed: ' + (mwaLoadError || 'unknown');
+      statusEl.style.color = 'var(--red)';
       btn.disabled = false;
       return;
     }
 
-    statusEl.textContent = 'Opening Seed Vault...';
+    statusEl.textContent = 'Opening Seed Vault — approve in wallet popup...';
     const walletAddr = await mwaAuthorize();
 
     // Show wallet address
     $('walletDisplay').classList.remove('hidden');
     $('walletAddr').textContent = walletAddr;
-    statusEl.innerHTML = `<span style="color: var(--accent-light);">✓ Wallet connected</span>`;
+    statusEl.innerHTML = `<span style="color: var(--accent-light);">✓ Wallet connected: ${walletAddr.substring(0, 8)}...${walletAddr.slice(-4)}</span>`;
 
     // Show bank confirm button
     $('btnSimulateBank').classList.remove('hidden');
 
   } catch (err) {
-    console.error('MWA authorize failed:', err);
-    statusEl.textContent = 'Wallet connection failed: ' + (err.message || err);
+    console.error('[MWA] Authorize failed:', err);
+    const msg = err.message || String(err);
+    if (msg.includes('timed out')) {
+      statusEl.textContent = '❌ Wallet did not respond (timeout). Is Seed Vault enabled?';
+    } else if (msg.includes('WALLET_NOT_FOUND')) {
+      statusEl.textContent = '❌ No MWA-compatible wallet found on this device.';
+    } else {
+      statusEl.textContent = '❌ Connection failed: ' + msg;
+    }
+    statusEl.style.color = 'var(--red)';
     btn.disabled = false;
   }
 });

@@ -9,6 +9,38 @@
 <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon/favicon-32x32.png">
 <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/@solana/web3.js@1.98.0/lib/index.iife.min.js"></script>
+<script type="module">
+// Preload MWA protocol at page load — more reliable than dynamic import()
+// Try multiple CDNs with fallback
+const CDN_SOURCES = [
+  'https://esm.sh/@solana-mobile/mobile-wallet-adapter-protocol@2.2.5',
+  'https://cdn.jsdelivr.net/npm/@solana-mobile/mobile-wallet-adapter-protocol@2.2.5/+esm',
+  'https://esm.run/@solana-mobile/mobile-wallet-adapter-protocol@2.2.5',
+];
+
+async function preloadMWA() {
+  for (const src of CDN_SOURCES) {
+    try {
+      console.log('[MWA preload] Trying:', src);
+      const mod = await import(src);
+      if (mod && typeof mod.transact === 'function') {
+        window.__mwaTransact = mod.transact;
+        console.log('[MWA preload] ✅ Loaded from:', src);
+        window.dispatchEvent(new Event('mwa-ready'));
+        return;
+      }
+      console.warn('[MWA preload] Module loaded but transact() not found:', Object.keys(mod));
+    } catch (e) {
+      console.warn('[MWA preload] Failed from', src, ':', e.message || e);
+    }
+  }
+  console.error('[MWA preload] ❌ All CDN sources failed');
+  window.__mwaLoadError = 'All CDN sources failed';
+  window.dispatchEvent(new Event('mwa-failed'));
+}
+
+preloadMWA();
+</script>
 <style>
   :root {
     --bg: #0f1219;
@@ -1142,6 +1174,10 @@
         <span class="info-value font-sm" id="settingsWalletSource">—</span>
       </div>
       <div class="info-row">
+        <span class="info-label">MWA Status</span>
+        <span class="info-value font-sm" id="settingsMWAStatus">—</span>
+      </div>
+      <div class="info-row">
         <span class="info-label">Address</span>
         <span class="info-value font-mono font-xs text-purple" id="settingsSolAddr" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;">—</span>
       </div>
@@ -1163,7 +1199,7 @@
     </button>
 
     <div class="text-center mt-3">
-      <div class="font-xs text-dim">AlpenSign v0.5.0 · Solana Seeker Hackathon Monolith</div>
+      <div class="font-xs text-dim">AlpenSign v0.5.1 · Solana Seeker Hackathon Monolith</div>
       <div class="font-xs text-dim mt-1">© 2026 Koivu GmbH · BSL 1.1</div>
     </div>
   </div>
