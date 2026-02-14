@@ -1,6 +1,7 @@
 // ============================================================
-// AlpenSign v0.3.0 — Transaction Sealing for Banks
+// AlpenSign v0.3.1 — Transaction Sealing for Banks
 // Solana Seeker Hackathon Monolith · Q1 2026
+// Optimized Device Detection (Async Client Hints)
 // ============================================================
 
 const RP_ID = window.location.hostname;
@@ -41,54 +42,80 @@ function formatTime(ts) {
 }
 
 // ============================================================
-// DEVICE DETECTION
+// DEVICE DETECTION (IMPROVED)
 // ============================================================
 
-function detectDevice() {
+async function detectDevice() {
   const ua = navigator.userAgent;
   const banner = $('deviceBanner');
   const icon = $('deviceIcon');
   const msg = $('deviceMessage');
-  const model = $('deviceModel');
+  const modelEl = $('deviceModel');
 
-  let deviceModel = 'Unknown';
-  const androidMatch = ua.match(/;\s*([^;)]+?)\s*Build\//);
-  if (androidMatch) {
-    deviceModel = androidMatch[1].trim();
+  let deviceModel = 'Unknown Device';
+  let isSeeker = false;
+
+  // 1. Primary Method: User-Agent Client Hints (Modern Seeker/Saga Detection)
+  if (navigator.userAgentData) {
+    try {
+      // Check for Solana Mobile brand tokens
+      const isSolanaBrand = navigator.userAgentData.brands.some(b => 
+        /solanamobile/i.test(b.brand)
+      );
+      
+      // Request high-entropy "model" value (bypass UA reduction)
+      const hints = await navigator.userAgentData.getHighEntropyValues(['model']);
+      deviceModel = hints.model || 'Unknown';
+      
+      isSeeker = isSolanaBrand || /seeker|solana/i.test(deviceModel);
+    } catch (e) {
+      console.warn("Client Hints failed, falling back to UA string.", e);
+    }
   }
 
-  const isSeeker = /seeker|solana\s*mobile|saga/i.test(ua) || /seeker/i.test(deviceModel);
+  // 2. Fallback Method: Enhanced UA Parsing (For older browsers or restricted environments)
+  if (!isSeeker) {
+    isSeeker = /seeker|solanamobile|solana\s*mobile|saga/i.test(ua);
+
+    // Robust model extraction (doesn't rely on "Build/")
+    const modelMatch = ua.match(/;\s*([^;)]+?)(?:(?:\s+Build\/)|(?:\s*Webkit)|(?:\s*[\);]))/i);
+    if (modelMatch && deviceModel === 'Unknown Device') {
+      deviceModel = modelMatch[1].trim();
+    }
+  }
+
   const isAndroid = /android/i.test(ua);
   const isIOS = /iphone|ipad|ipod/i.test(ua);
 
+  // Set Global State
   if (isSeeker) {
     state.deviceType = 'SOLANA_SEEKER';
-    state.deviceModel = deviceModel;
+    state.deviceModel = deviceModel || 'Solana Seeker';
     banner.className = 'device-banner show seeker';
     icon.textContent = '✅';
     msg.textContent = 'Solana Seeker detected — Seed Vault available';
-    model.textContent = deviceModel;
+    modelEl.textContent = state.deviceModel;
   } else if (isAndroid) {
     state.deviceType = 'GENERIC_ANDROID';
     state.deviceModel = deviceModel;
     banner.className = 'device-banner show warning';
     icon.textContent = '⚠️';
     msg.innerHTML = 'Non-Seeker device — signatures are <b>not</b> backed by Genesis Token or TEEPIN';
-    model.textContent = deviceModel;
+    modelEl.textContent = deviceModel;
   } else if (isIOS) {
     state.deviceType = 'IOS';
     state.deviceModel = 'iPhone / iPad';
     banner.className = 'device-banner show warning';
     icon.textContent = '⚠️';
     msg.innerHTML = 'iOS device — no Seed Vault or Genesis Token available';
-    model.textContent = 'Apple Secure Enclave (no Solana integration)';
+    modelEl.textContent = 'Apple Secure Enclave (no Solana integration)';
   } else {
     state.deviceType = 'DESKTOP';
     state.deviceModel = 'Desktop Browser';
     banner.className = 'device-banner show desktop';
     icon.textContent = '🖥️';
     msg.textContent = 'Desktop browser — demo mode only, no hardware secure element';
-    model.textContent = navigator.platform || 'Unknown platform';
+    modelEl.textContent = navigator.platform || 'Unknown platform';
   }
 
   return state.deviceType;
@@ -677,9 +704,9 @@ $('btnReset').addEventListener('click', () => {
 // INIT
 // ============================================================
 
-function init() {
+async function init() {
   loadState();
-  detectDevice();
+  await detectDevice(); // Ensure device detection completes before UI updates
   const solanaReady = initSolana();
   updateHeaderBadge();
 
@@ -699,4 +726,5 @@ function init() {
   }
 }
 
+// Global start
 init();
