@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AlpenSign — MWA Debug</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, sans-serif; background: #0f1219; color: #e0e6f0; padding: 1rem; }
+  h2 { margin: 1rem 0 0.5rem; color: #7dd3fc; font-size: 1.1rem; }
+  .log { background: #1a1f2e; border-radius: 8px; padding: 1rem; margin: 0.5rem 0; font-size: 0.8rem; font-family: monospace; white-space: pre-wrap; max-height: 200px; overflow-y: auto; }
+  .log .ok { color: #4ade80; }
+  .log .err { color: #f87171; }
+  .log .warn { color: #fbbf24; }
+  .log .info { color: #93c5fd; }
+  button { background: #2563eb; color: white; border: none; border-radius: 8px; padding: 12px 20px; font-size: 1rem; margin: 4px; cursor: pointer; }
+  button:active { background: #1d4ed8; }
+  .status-row { display: flex; justify-content: space-between; padding: 8px 12px; background: #1a1f2e; border-radius: 6px; margin: 4px 0; }
+  .status-label { color: #94a3b8; }
+  .status-value { font-weight: 600; }
+  .green { color: #4ade80; }
+  .red { color: #f87171; }
+  .amber { color: #fbbf24; }
+</style>
+</head>
+<body>
+
+<h1 style="font-size:1.3rem; margin-bottom:1rem;">🔧 MWA Connection Debug</h1>
+
+<h2>1. Environment Checks</h2>
+<div id="env-checks"></div>
+
+<h2>2. MWA Module Load</h2>
+<div class="log" id="log-mwa"></div>
+
+<h2>3. Manual Tests</h2>
+<button onclick="testIntent()">Test solana-wallet:// Intent</button>
+<button onclick="testWebSocket()">Test WebSocket Server</button>
+<button onclick="testMWATransact()">Test transact()</button>
+<div class="log" id="log-tests"></div>
+
+<h2>4. Full Connection Test</h2>
+<button onclick="fullTest()">Connect to Seed Vault</button>
+<div class="log" id="log-full"></div>
+
+<script type="module">
+// Preload MWA
+const CDN_SOURCES = [
+  'https://esm.sh/@solana-mobile/mobile-wallet-adapter-protocol@2.2.5',
+  'https://cdn.jsdelivr.net/npm/@solana-mobile/mobile-wallet-adapter-protocol@2.2.5/+esm',
+  'https://esm.run/@solana-mobile/mobile-wallet-adapter-protocol@2.2.5',
+];
+
+window.__mwaModule = null;
+window.__mwaTransact = null;
+
+for (const src of CDN_SOURCES) {
+  try {
+    log('mwa', 'info', `Trying: ${src}`);
+    const mod = await import(src);
+    window.__mwaModule = mod;
+    const exportKeys = Object.keys(mod);
+    log('mwa', 'info', `Exports: ${exportKeys.join(', ')}`);
+    
+    if (typeof mod.transact === 'function') {
+      window.__mwaTransact = mod.transact;
+      log('mwa', 'ok', `✅ transact() loaded from: ${src}`);
+    } else {
+      log('mwa', 'warn', `⚠️ No transact() in exports`);
+    }
+    break;
+  } catch (e) {
+    log('mwa', 'err', `❌ Failed: ${src}\n   ${e.message || e}`);
+  }
+}
+
+if (!window.__mwaTransact) {
+  log('mwa', 'err', '❌ Could not load transact() from any CDN');
+}
+</script>
+
+<script>
+function log(target, cls, msg) {
+  const el = document.getElementById('log-' + target) || document.getElementById('log-tests');
+  const span = document.createElement('span');
+  span.className = cls;
+  span.textContent = msg + '\n';
+  el.appendChild(span);
+  el.scrollTop = el.scrollHeight;
+}
+
+// Environment checks
+window.addEventListener('DOMContentLoaded', () => {
+  const checks = document.getElementById('env-checks');
+  
+  function row(label, value, cls) {
+    checks.innerHTML += `<div class="status-row"><span class="status-label">${label}</span><span class="status-value ${cls}">${value}</span></div>`;
+  }
+
+  // HTTPS
+  row('Protocol', location.protocol, location.protocol === 'https:' ? 'green' : 'red');
+  
+  // User Agent
+  const ua = navigator.userAgent;
+  const isChrome = /Chrome\//.test(ua) && !/Edg/.test(ua);
+  const isAndroid = /Android/.test(ua);
+  row('Android', isAndroid ? 'Yes' : 'No', isAndroid ? 'green' : 'red');
+  row('Chrome', isChrome ? 'Yes' : 'No', isChrome ? 'green' : 'amber');
+  
+  // Battery saver detection (indirect)
+  if ('getBattery' in navigator) {
+    navigator.getBattery().then(b => {
+      const charging = b.charging;
+      const level = Math.round(b.level * 100);
+      row('Battery', `${level}% ${charging ? '(charging)' : '(not charging)'}`, level < 20 && !charging ? 'amber' : 'green');
+      if (level < 20 && !charging) {
+        row('⚠️ Low Battery Warning', 'Battery saver may block MWA!', 'red');
+      }
+    });
+  }
+  
+  // WebSocket support
+  row('WebSocket', typeof WebSocket !== 'undefined' ? 'Supported' : 'Missing', 'green');
+  
+  // Crypto.subtle
+  row('SubtleCrypto', typeof crypto.subtle !== 'undefined' ? 'Available' : 'Missing', typeof crypto.subtle !== 'undefined' ? 'green' : 'red');
+  
+  // Check for injected wallet providers
+  const providers = [];
+  if (window.solana) providers.push('window.solana');
+  if (window.phantom) providers.push('window.phantom');
+  if (window.solflare) providers.push('window.solflare');
+  if (window.backpack) providers.push('window.backpack');
+  if (navigator.wallets) providers.push('navigator.wallets');
+  
+  row('Injected Providers', providers.length > 0 ? providers.join(', ') : 'None detected', providers.length > 0 ? 'green' : 'amber');
+
+  // Check Wallet Standard
+  if (window.navigator.wallets) {
+    try {
+      const wallets = window.navigator.wallets.get();
+      row('Wallet Standard', `${wallets.length} wallet(s)`, 'green');
+    } catch(e) {
+      row('Wallet Standard', 'Error: ' + e.message, 'red');
+    }
+  }
+});
+
+// Test 1: Manual Intent navigation
+function testIntent() {
+  log('tests', 'info', '--- Testing solana-wallet:// Intent ---');
+  log('tests', 'info', 'Navigating to: solana-wallet:///v1/associate/local?association=test');
+  log('tests', 'warn', 'If nothing happens: no app handles the scheme');
+  log('tests', 'warn', 'If wallet opens briefly: Intent works!');
+  log('tests', 'warn', 'If Chrome shows "Open with..." dialog: multiple handlers');
+  
+  // Use anchor tag for better Chrome intent handling
+  const a = document.createElement('a');
+  a.href = 'solana-wallet:///v1/associate/local?association=dGVzdA&port=0';
+  a.click();
+  
+  setTimeout(() => {
+    log('tests', 'info', 'If you saw nothing happen, the Intent was blocked or unhandled.');
+    log('tests', 'info', 'Check: Is Seed Vault Wallet app installed and enabled?');
+  }, 3000);
+}
+
+// Test 2: WebSocket server
+async function testWebSocket() {
+  log('tests', 'info', '--- Testing local WebSocket connectivity ---');
+  
+  // Try connecting to a random port (will fail, but tests if WS works at all)
+  try {
+    const ws = new WebSocket('ws://localhost:49152');
+    ws.onopen = () => {
+      log('tests', 'ok', 'WebSocket connected (unexpected!)');
+      ws.close();
+    };
+    ws.onerror = () => {
+      log('tests', 'ok', '✅ WebSocket works (connection refused = expected, no server on this port)');
+    };
+    ws.onclose = () => {
+      log('tests', 'info', 'WebSocket closed');
+    };
+  } catch(e) {
+    log('tests', 'err', '❌ WebSocket creation failed: ' + e.message);
+  }
+}
+
+// Test 3: MWA transact() with detailed logging
+function testMWATransact() {
+  log('tests', 'info', '--- Testing transact() ---');
+  
+  const transactFn = window.__mwaTransact;
+  if (!transactFn) {
+    log('tests', 'err', '❌ transact() not available');
+    return;
+  }
+  
+  log('tests', 'info', 'Calling transact()...');
+  log('tests', 'warn', 'Watch: does the Seed Vault Wallet open?');
+  
+  const startTime = Date.now();
+  
+  // Call transact() directly from the click (preserves user gesture)
+  transactFn(async (wallet) => {
+    const elapsed = Date.now() - startTime;
+    log('tests', 'ok', `✅ Session established! (${elapsed}ms)`);
+    log('tests', 'info', 'Wallet methods: ' + Object.getOwnPropertyNames(Object.getPrototypeOf(wallet)).join(', '));
+    
+    // Just get capabilities, don't authorize
+    try {
+      const caps = await wallet.getCapabilities();
+      log('tests', 'ok', 'Capabilities: ' + JSON.stringify(caps));
+    } catch(e) {
+      log('tests', 'warn', 'getCapabilities() not available: ' + e.message);
+    }
+    
+    return 'test-ok';
+  })
+  .then((result) => {
+    const elapsed = Date.now() - startTime;
+    log('tests', 'ok', `✅ transact() completed in ${elapsed}ms: ${result}`);
+  })
+  .catch((err) => {
+    const elapsed = Date.now() - startTime;
+    log('tests', 'err', `❌ transact() failed after ${elapsed}ms: ${err.message || err}`);
+    if (err.code) log('tests', 'err', `   Error code: ${err.code}`);
+  });
+}
+
+// Test 4: Full connection test
+function fullTest() {
+  log('full', 'info', '--- Full Seed Vault Connection Test ---');
+  
+  const transactFn = window.__mwaTransact;
+  if (!transactFn) {
+    log('full', 'err', '❌ transact() not available. Check MWA Module Load section.');
+    return;
+  }
+  
+  log('full', 'info', 'Step 1: Calling transact() from user gesture...');
+  const startTime = Date.now();
+  
+  transactFn(async (wallet) => {
+    log('full', 'ok', `Step 2: Session established (${Date.now() - startTime}ms)`);
+    log('full', 'info', 'Step 3: Calling authorize()...');
+    
+    const auth = await wallet.authorize({
+      cluster: 'solana:devnet',
+      identity: {
+        name: 'AlpenSign Debug',
+        uri: window.location.origin,
+        icon: './images/alpensign_logo_small_dark.png',
+      },
+    });
+    
+    log('full', 'ok', `Step 4: Authorized! Token: ${auth.auth_token?.substring(0, 20)}...`);
+    log('full', 'info', `Accounts: ${auth.accounts.length}`);
+    
+    if (auth.accounts.length > 0) {
+      const addr = auth.accounts[0].address;
+      log('full', 'ok', `Wallet address (base64): ${addr}`);
+      if (auth.accounts[0].display_address) {
+        log('full', 'ok', `Wallet address (display): ${auth.accounts[0].display_address}`);
+      }
+    }
+    
+    return auth;
+  })
+  .then((result) => {
+    log('full', 'ok', `✅ SUCCESS! Full connection completed in ${Date.now() - startTime}ms`);
+  })
+  .catch((err) => {
+    log('full', 'err', `❌ FAILED after ${Date.now() - startTime}ms: ${err.message || err}`);
+    if (err.code) log('full', 'err', `Error code: ${err.code}`);
+    
+    // Diagnostic suggestions
+    log('full', 'warn', '\nDiagnostic checklist:');
+    log('full', 'warn', '1. Is Battery Saver OFF? (Settings → Battery)');
+    log('full', 'warn', '2. Is Seed Vault Wallet app visible in app drawer?');
+    log('full', 'warn', '3. Did the wallet app open at all when you clicked?');
+    log('full', 'warn', '4. Chrome → Settings → Default Apps → check no wallet override');
+    log('full', 'warn', '5. Try: open solana-wallet:// in Chrome address bar directly');
+  });
+}
+</script>
+
+</body>
+</html>
