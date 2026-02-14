@@ -4,6 +4,22 @@
 
 AlpenSign was built for the Solana Seeker Hackathon Monolith (Q1 2026) by a Swiss fintech team. The core idea: the phone doesn't replace the bank's authentication — it independently attests that the client confirmed the transaction. This produces evidence that is not controlled by the bank, making it structurally stronger than self-serving server logs in disputes and fraud cases.
 
+## Current Status (v0.5.4)
+
+Working end-to-end on Solana Seeker hardware:
+
+- ✅ WebAuthn enrollment with platform authenticator (biometric-gated ECDSA)
+- ✅ MWA connection to Seed Vault Wallet via `@solana-mobile/mobile-wallet-adapter-protocol@2.2.5`
+- ✅ Real wallet address from Seed Vault hardware
+- ✅ Biometric-signed transaction seals (SHA-256 hash of payment details)
+- ✅ Memo transactions posted to Solana devnet, signed by Seed Vault private key
+- ✅ Verifiable on Solana Explorer
+- ✅ Graceful degradation on non-Seeker devices (local-only proof)
+- 🔲 Genesis Token verification (simulated)
+- 🔲 SAS credential issuance (simulated)
+- 🔲 Client NFT minting (simulated)
+- 🔲 Bank confirmation flow (simulated)
+
 ## Architecture
 
 AlpenSign implements a three-layer trust model:
@@ -23,15 +39,88 @@ AlpenSign implements a three-layer trust model:
 
 ## Setup & Enrollment Flow
 
-1. Solana Seeker connects wallet to AlpenSign
+1. Solana Seeker connects wallet to AlpenSign via Mobile Wallet Adapter
 2. AlpenSign sends enrollment request to Bank
 3. Bank verifies Genesis Token and issues SAS credential on Solana
 4. Bank mints a soulbound Client NFT to the Seeker wallet
 5. AlpenSign is enrolled and ready to seal transactions
 
+## Technical Implementation
+
+### Stack
+
+| Component | Source | Notes |
+|-----------|--------|-------|
+| Frontend | Vanilla HTML/JS, no framework | Single-page app, no build tools |
+| Solana web3.js | unpkg IIFE `@1.98.0` | Global `solanaWeb3` object |
+| MWA protocol | esm.sh ESM `@2.2.5` | Preloaded to `window.__mwaTransact` |
+| WebAuthn | Browser native | Platform authenticator (Seeker secure element) |
+| Solana RPC | `api.devnet.solana.com` | Blockhash, balance, confirmation |
+| Hosting | HTTPS (required for MWA) | Chrome Android only |
+
+### MWA Integration (Critical Details)
+
+The app uses the Mobile Wallet Adapter protocol to connect to the Seeker's Seed Vault Wallet from a web page in Chrome Android. This is a non-standard integration path — most MWA apps are React Native or native Android.
+
+**Key technical constraints discovered during development:**
+
+1. **Use `chain`, not `cluster`** in `authorize()` calls. MWA v2 spec uses `chain: 'solana:devnet'`. The `cluster` alias causes silent timeouts with the Seed Vault Wallet.
+
+2. **`identity.icon` must be a relative URI** resolved against `identity.uri`. Absolute URLs cause error `-32602`.
+
+3. **`transact()` must fire synchronously from a click handler.** Chrome blocks `solana-wallet://` Intent navigation if the user gesture is expired. Any `await` before `transact()` kills the gesture.
+
+4. **No network calls inside MWA sessions.** Chrome throttles backgrounded pages. Fetch blockhash and build transactions *before* calling `transact()`.
+
+5. **Handle multiple signature return formats.** `signAndSendTransactions()` returns `{ signatures: [Uint8Array] }`, not a plain array or base64 string.
+
+6. **Seed Vault suppresses biometric UI** if screen recording, overlays ("draw over apps"), or battery saver are active. These cause silent authorization failures.
+
+7. **Multi-step flows need a fresh user gesture** for each MWA call. The seal flow uses a dedicated tap target at the Solana posting step.
+
+### State Schema
+
+```javascript
+localStorage.alpensign_state = {
+  enrolled: boolean,
+  credId: string,           // base64 WebAuthn credential ID
+  walletAddr: string,       // base58 Seed Vault wallet address
+  mwaAuthToken: string,     // MWA reauthorization token
+  mwaWalletUriBase: string, // custom wallet URI for faster reconnection
+  seals: [{
+    recipient, town, country, amount, iban, ref,
+    hash,          // SHA-256 of payment details
+    signature,     // WebAuthn ECDSA signature (base64)
+    solanaTx,      // Solana TX signature (base58)
+    solanaTxReal,  // boolean: true if posted on-chain
+    deviceType,    // SOLANA_SEEKER or OTHER
+    timestamp
+  }],
+  welcomeSeen: boolean
+}
+```
+
+### What's Real vs Simulated
+
+**Real (on Seeker with connected wallet):**
+- WebAuthn credential in platform authenticator
+- Biometric-gated ECDSA signature over payment hash
+- MWA authorization with Seed Vault hardware
+- Real Solana wallet address from Seed Vault
+- Memo transaction signed by Seed Vault private key
+- Transaction posted to Solana devnet
+- Explorer link to real on-chain transaction
+
+**Simulated:**
+- Genesis Token verification during enrollment
+- SAS credential issuance by bank
+- Client NFT minting
+- Bank confirmation flow
+
 ## Technology Stack
 
 - **Seeker Seed Vault**: Hardware-isolated key storage with biometric-gated signing. Keys never leave the secure element.
+- **Mobile Wallet Adapter (MWA)**: Protocol for web/native dApps to connect to MWA-compatible wallets. Uses WebSocket + Android Intent for session establishment, ECDH for encrypted communication.
 - **Solana Attestation Service (SAS)**: Permissionless credential protocol from the Solana Foundation. Used for both bank credentials and transaction seals.
 - **Solana Mobile Stack**: Native wallet integration, dApp runtime, and TEEPIN device verification.
 - **TEEPIN + SKR Guardians**: Trusted Execution Environment Platform Infrastructure Network. SKR-staked Guardians verify device authenticity.
@@ -68,7 +157,16 @@ Banks lose billions to fraud and friendly fraud. Their only defense in disputes 
 
 ## Links
 
-- [Landing Page](https://gbits-io.github.io/alpensign/)
+- [AlpenSign Home](https://alpensign.com/)
+- [AlpenSign App](https://alpensign.com/app.html)
+- [MWA Debug Tool](https://alpensign.com/mwa-debug.html)
 - [GitHub Repository](https://github.com/gbits-io/alpensign/)
-- [AlpenSign App](https://gbits-io.github.io/alpensign/app.html)
 - [Gbits.io](https://gbits.io)
+
+## Files
+
+- `app.html` — Main application shell (HTML + CSS)
+- `app.js` — Application logic (enrollment, sealing, MWA integration, state management)
+- `mwa-debug.html` — Standalone MWA diagnostic tool for field debugging
+- `MWA_INTEGRATION_LEARNINGS.md` — Detailed postmortem of MWA integration challenges
+- `llms.txt` — This file
