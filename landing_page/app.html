@@ -465,6 +465,18 @@ preloadMWA();
     font-weight: 400;
   }
 
+  .seal-step.awaiting-tap {
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 0.5rem;
+    animation: tapPulse 1.2s ease-in-out infinite;
+  }
+
+  @keyframes tapPulse {
+    0%, 100% { border-color: var(--accent); }
+    50% { border-color: var(--amber); }
+  }
+
   /* ---- Tech Console ---- */
   .tech-console {
     background: #000;
@@ -1199,7 +1211,7 @@ preloadMWA();
     </button>
 
     <div class="text-center mt-3">
-      <div class="font-xs text-dim">AlpenSign v0.5.2 · Solana Seeker Hackathon Monolith</div>
+      <div class="font-xs text-dim">AlpenSign v0.5.3 · Solana Seeker Hackathon Monolith</div>
       <div class="font-xs text-dim mt-1">© 2026 Koivu GmbH · BSL 1.1</div>
     </div>
   </div>

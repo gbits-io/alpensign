@@ -891,103 +891,112 @@ $('btnSeal').addEventListener('click', async () => {
     let failReason = '';
 
     if (isSeekerDevice() && state.walletAddr) {
-      // Build the memo TX payload now (no user gesture needed for this)
+      // Build the memo TX payload and serialize BEFORE opening wallet session
+      // (RPC calls shouldn't happen while Chrome is backgrounded by MWA)
       const memoPayload = buildMemoPayload(p, txHash, signature);
 
-      // CHROME GESTURE REQUIREMENT: We need a fresh user tap to dispatch
-      // the MWA Intent. Make step-4 clickable and wait for the tap.
-      const step4El = $('step-post');
-      $('step-post-sub').textContent = '👆 Tap here to open Seed Vault';
-      step4El.style.cursor = 'pointer';
-      step4El.classList.add('awaiting-tap');
+      $('step-post-sub').textContent = 'Preparing transaction...';
+      let txBase64;
+      try {
+        const memoIx = new solanaWeb3.TransactionInstruction({
+          keys: [],
+          programId: new solanaWeb3.PublicKey(MEMO_PROGRAM_ID),
+          data: new TextEncoder().encode(memoPayload),
+        });
 
-      // Wait for user to tap step 4
-      solanaTxId = await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          step4El.removeEventListener('click', handler);
-          step4El.style.cursor = '';
-          step4El.classList.remove('awaiting-tap');
-          reject(new Error('Timed out waiting for tap (30s)'));
-        }, 30000);
+        const { blockhash } = await solanaConnection.getLatestBlockhash('confirmed');
+        console.log('[Seal] Blockhash:', blockhash);
 
-        function handler() {
-          step4El.removeEventListener('click', handler);
-          step4El.style.cursor = '';
-          step4El.classList.remove('awaiting-tap');
-          clearTimeout(timeout);
+        const tx = new solanaWeb3.Transaction({
+          recentBlockhash: blockhash,
+          feePayer: new solanaWeb3.PublicKey(state.walletAddr),
+        }).add(memoIx);
 
-          $('step-post-sub').textContent = 'Signing with Seed Vault...';
-          $('sealBadge').textContent = 'Posting...';
+        const serialized = tx.serialize({
+          requireAllSignatures: false,
+          verifySignatures: false,
+        });
+        txBase64 = btoa(String.fromCharCode(...serialized));
+        console.log('[Seal] TX serialized:', serialized.length, 'bytes');
+      } catch (buildErr) {
+        failReason = 'TX build failed: ' + (buildErr.message || buildErr);
+        console.error('[Seal]', failReason);
+      }
 
-          // transact() fires IMMEDIATELY from this fresh click — Chrome allows it
-          const transactFn = window.__mwaTransact || mwaTransact;
-          if (!transactFn) {
-            reject(new Error('MWA not loaded'));
-            return;
+      if (txBase64 && !failReason) {
+        // CHROME GESTURE REQUIREMENT: fresh user tap for MWA Intent
+        const step4El = $('step-post');
+        $('step-post-sub').textContent = '👆 Tap here to open Seed Vault';
+        step4El.style.cursor = 'pointer';
+        step4El.classList.add('awaiting-tap');
+
+        solanaTxId = await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            step4El.removeEventListener('click', handler);
+            step4El.style.cursor = '';
+            step4El.classList.remove('awaiting-tap');
+            reject(new Error('Timed out waiting for tap (30s)'));
+          }, 30000);
+
+          function handler() {
+            step4El.removeEventListener('click', handler);
+            step4El.style.cursor = '';
+            step4El.classList.remove('awaiting-tap');
+            clearTimeout(timeout);
+
+            $('step-post-sub').textContent = 'Signing with Seed Vault...';
+            $('sealBadge').textContent = 'Posting...';
+
+            const transactFn = window.__mwaTransact || mwaTransact;
+            if (!transactFn) {
+              reject(new Error('MWA not loaded'));
+              return;
+            }
+
+            // transact() fires IMMEDIATELY from click — no async before this
+            transactFn(async (wallet) => {
+              console.log('[MWA] Seal session established, authorizing...');
+              const auth = await wallet.authorize({
+                chain: 'solana:devnet',
+                identity: APP_IDENTITY,
+                auth_token: state.mwaAuthToken || undefined,
+              });
+              state.mwaAuthToken = auth.auth_token;
+              if (auth.wallet_uri_base) state.mwaWalletUriBase = auth.wallet_uri_base;
+              saveState();
+              console.log('[MWA] Authorized, sending pre-built TX...');
+
+              const result = await wallet.signAndSendTransactions({
+                payloads: [txBase64],
+              });
+              console.log('[MWA] signAndSendTransactions returned');
+              return result[0];
+            })
+            .then((sigBase64) => {
+              const sigBytes = (sigBase64 instanceof Uint8Array)
+                ? sigBase64
+                : Uint8Array.from(atob(sigBase64), c => c.charCodeAt(0));
+              const txSig = base58encode(sigBytes);
+              console.log('[MWA] ✅ TX confirmed:', txSig);
+              resolve(txSig);
+            })
+            .catch((e) => {
+              console.error('[MWA] signAndSend failed:', e);
+              reject(e);
+            });
           }
 
-          transactFn(async (wallet) => {
-            console.log('[MWA] Seal session established, authorizing...');
-            const auth = await wallet.authorize({
-              chain: 'solana:devnet',
-              identity: APP_IDENTITY,
-              auth_token: state.mwaAuthToken || undefined,
-            });
-            state.mwaAuthToken = auth.auth_token;
-            if (auth.wallet_uri_base) state.mwaWalletUriBase = auth.wallet_uri_base;
-            saveState();
-
-            // Build and serialize the memo transaction
-            console.log('[MWA] Building memo TX...');
-            const memoIx = new solanaWeb3.TransactionInstruction({
-              keys: [],
-              programId: new solanaWeb3.PublicKey(MEMO_PROGRAM_ID),
-              data: new TextEncoder().encode(memoPayload),
-            });
-
-            const { blockhash } = await solanaConnection.getLatestBlockhash('confirmed');
-            const tx = new solanaWeb3.Transaction({
-              recentBlockhash: blockhash,
-              feePayer: new solanaWeb3.PublicKey(state.walletAddr),
-            }).add(memoIx);
-
-            const serialized = tx.serialize({
-              requireAllSignatures: false,
-              verifySignatures: false,
-            });
-            const txBase64 = btoa(String.fromCharCode(...serialized));
-            console.log('[MWA] TX serialized:', serialized.length, 'bytes');
-
-            console.log('[MWA] Calling signAndSendTransactions...');
-            const result = await wallet.signAndSendTransactions({
-              payloads: [txBase64],
-            });
-            return result[0];
-          })
-          .then((sigBase64) => {
-            const sigBytes = (sigBase64 instanceof Uint8Array)
-              ? sigBase64
-              : Uint8Array.from(atob(sigBase64), c => c.charCodeAt(0));
-            const txSig = base58encode(sigBytes);
-            console.log('[MWA] ✅ TX confirmed:', txSig);
-            resolve(txSig);
-          })
-          .catch((e) => {
-            console.error('[MWA] signAndSend failed:', e);
-            reject(e);
-          });
-        }
-
-        step4El.addEventListener('click', handler);
-      }).then((txId) => {
-        onChain = true;
-        console.log('✅ On-chain TX:', txId);
-        return txId;
-      }).catch((solanaErr) => {
-        failReason = solanaErr.message || String(solanaErr);
-        console.warn('Solana posting failed:', failReason);
-        return null;
-      });
+          step4El.addEventListener('click', handler);
+        }).then((txId) => {
+          onChain = true;
+          console.log('✅ On-chain TX:', txId);
+          return txId;
+        }).catch((solanaErr) => {
+          failReason = solanaErr.message || String(solanaErr);
+          console.warn('Solana posting failed:', failReason);
+          return null;
+        });
+      }
 
     } else if (!isSeekerDevice()) {
       $('sealBadge').textContent = 'Recording...';
@@ -1002,6 +1011,12 @@ $('btnSeal').addEventListener('click', async () => {
     await activateStep(4);
     $(steps[3]).classList.remove('active');
     $(steps[3]).classList.add('done');
+
+    // Show fail reason on step 4 for diagnostics
+    if (failReason && failReason !== 'NON_SEEKER') {
+      $('step-post-sub').textContent = '❌ ' + failReason;
+      $('step-post-sub').style.color = 'var(--red)';
+    }
 
     if (onChain) {
       $('sealBadge').textContent = 'Sealed ✓';
