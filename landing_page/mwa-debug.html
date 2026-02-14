@@ -40,6 +40,14 @@
 <div class="log" id="log-tests"></div>
 
 <h2>4. Full Connection Test</h2>
+<div style="background:#1a1f2e; border-left:3px solid #fbbf24; padding:12px; border-radius:6px; margin:8px 0; font-size:0.85rem;">
+  <strong style="color:#fbbf24;">⚠️ Before testing:</strong><br>
+  • Turn OFF screen recording / casting / mirroring<br>
+  • Close any "display over apps" overlays (chat bubbles, blue light filters)<br>
+  • Seed Vault blocks biometric UI if it detects tapjacking risk<br>
+  • Force-close Chrome + Seed Vault Wallet, then reopen this page<br>
+  • Run this test as the <strong>very first action</strong> — skip Tests 1-3
+</div>
 <button onclick="fullTest()">Connect to Seed Vault</button>
 <div class="log" id="log-full"></div>
 
@@ -247,11 +255,11 @@ function fullTest() {
     log('full', 'info', 'Step 3: Calling authorize()...');
     
     const auth = await wallet.authorize({
-      cluster: 'solana:devnet',
+      chain: 'solana:devnet',
       identity: {
         name: 'AlpenSign Debug',
         uri: window.location.origin,
-        icon: './images/alpensign_logo_small_dark.png',
+        icon: new URL('./images/alpensign_logo_small_dark.png', window.location.href).href,
       },
     });
     
