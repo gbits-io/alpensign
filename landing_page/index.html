@@ -1113,6 +1113,46 @@
     }
   }
 
+  /* ---- Ask AI Button ---- */
+  .btn-ai {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    cursor: pointer;
+    font-family: 'Source Sans 3', sans-serif;
+  }
+
+  .btn-ai-icon {
+    font-size: 0.95rem;
+    line-height: 1;
+  }
+
+  /* ---- Toast ---- */
+  .toast {
+    position: fixed;
+    bottom: 2.5rem;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--text-primary);
+    color: var(--bg-primary);
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 0.7rem 1.4rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.15);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s, transform 0.3s;
+    z-index: 9998;
+    white-space: nowrap;
+  }
+
+  .toast.visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
   /* ---- Demo Video ---- */
   .demo-video-wrapper {
     display: flex;
@@ -1227,6 +1267,9 @@
   <div class="hero-actions">
     <a href="./app.html/" target="_blank" rel="noopener" class="btn-primary">AlpenSign App</a>
     <a href="https://github.com/gbits-io/alpensign/" target="_blank" rel="noopener" class="btn-primary">View on GitHub</a>
+    <button class="btn-secondary btn-ai" onclick="copyForLLM()">
+      <span class="btn-ai-icon">⌘</span> Ask AI about AlpenSign
+    </button>
   </div>
   
   <div class="hero-actions">
@@ -1642,9 +1685,12 @@
   <div class="footer-links">
     <a href="https://github.com/gbits-io/alpensign/" target="_blank" rel="noopener">GitHub</a>
     <a href="https://gbits.io" target="_blank" rel="noopener">Gbits.io</a>
+    <a href="./llms.txt" target="_blank" rel="noopener">llms.txt</a>
     <a href="#" onclick="revealContact(event)">Contact</a>
   </div>
 </footer>
+
+<div class="toast" id="llmToast">✓ Copied — paste into Claude or any LLM</div>
 
 <script>
   // Scroll reveal
@@ -1657,6 +1703,31 @@
   }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
 
   document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+  // Copy llms.txt for LLM
+  async function copyForLLM() {
+    try {
+      const res = await fetch('./llms.txt');
+      const text = await res.text();
+      await navigator.clipboard.writeText(text);
+      showToast();
+    } catch (e) {
+      // Fallback: copy inline summary
+      const fallback = `# AlpenSign — Transaction Sealing for Banks on Solana Seeker\n\nAlpenSign turns the Solana Seeker phone into a Mobile HSM that seals bank payments and posts cryptographic proof to Solana. No bank server, no Apple, no Google, no AlpenSign backend. Learn more: https://alpensign.com | GitHub: https://github.com/gbits-io/alpensign/`;
+      try {
+        await navigator.clipboard.writeText(fallback);
+        showToast();
+      } catch (e2) {
+        alert('Could not copy to clipboard. Visit alpensign.com/llms.txt to copy manually.');
+      }
+    }
+  }
+
+  function showToast() {
+    const toast = document.getElementById('llmToast');
+    toast.classList.add('visible');
+    setTimeout(() => toast.classList.remove('visible'), 2500);
+  }
 
   // Screenshot slider
   function scrollToSlide(index) {
