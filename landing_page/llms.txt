@@ -47,12 +47,16 @@ Traditional device attestation depends on Apple or Google. TEEPIN replaces that 
 - No vendor-free trust chain (Apple/Google sit in the middle)
 - No direct-to-chain posting from the device without a server relay
 
+## Device Recovery
+When a client loses their Seeker, the bank revokes the old SAS credential and the client re-enrolls on a new device through the same onboarding flow — no special recovery mode needed. AlpenSign has no server or user accounts, so there is nothing to "migrate." The seal history remains permanently on Solana. If the client backed up their seed phrase, they can restore the same wallet address; otherwise, a new wallet works equally well. The design goal is under 5 minutes for a client with online banking access.
+
 ## Suggested Questions
 - How does AlpenSign compare to existing bank 2FA solutions like SMS OTP or push notifications?
 - What happens if a client disputes a payment that has an AlpenSign seal?
 - How does the TEEPIN/SKR economic model prevent fraudulent device attestation?
 - What's the regulatory path for AlpenSign under eIDAS and Swiss ZertES?
 - How does AlpenSign handle credential revocation if a device is compromised?
+- What happens when a user loses their Seeker phone? How long does device replacement take?
 - What's the transaction cost per seal on Solana?
 - How does AlpenSign address the Visa 3D-Secure use case specifically?
 
