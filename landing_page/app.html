@@ -570,6 +570,102 @@ preloadMWA();
     letter-spacing: 0.05em;
   }
 
+  .history-item-expanded {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .history-item-expanded:last-child { border-bottom: none; }
+
+  .history-item-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .history-meta {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+  }
+
+  .history-detail-rows {
+    margin-top: 0.5rem;
+    margin-left: 52px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .history-detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.5rem;
+  }
+
+  .history-detail-label {
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    min-width: 80px;
+    flex-shrink: 0;
+  }
+
+  .history-detail-value {
+    font-size: 0.68rem;
+    color: var(--text-secondary);
+    text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .history-link {
+    color: var(--accent-light);
+    text-decoration: none;
+  }
+
+  .history-link:active {
+    color: var(--accent);
+  }
+
+  /* ---- About Page ---- */
+  .about-layer {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0.6rem 0.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .about-layer:last-of-type { border-bottom: none; }
+
+  .about-layer-num {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--bg);
+    font-weight: 800;
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 0.1rem;
+  }
+
+  .about-layer-title {
+    font-weight: 700;
+    font-size: 0.82rem;
+    color: var(--text);
+  }
+
+  .about-layer-desc {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    margin-top: 0.15rem;
+    line-height: 1.4;
+  }
+
   /* ---- Notification Banner ---- */
   .notification {
     display: none;
@@ -1210,9 +1306,82 @@ preloadMWA();
       Reset Device — Remove All Keys
     </button>
 
+    <button class="btn btn-ghost mt-1" id="btnAbout" style="font-size: 0.8rem; width: 100%;">
+      ℹ️ About AlpenSign
+    </button>
+
     <div class="text-center mt-3">
-      <div class="font-xs text-dim">AlpenSign v0.5.3 · Solana Seeker Hackathon Monolith</div>
+      <div class="font-xs text-dim">AlpenSign v0.5.5 · Solana Seeker Hackathon Monolith</div>
       <div class="font-xs text-dim mt-1">© 2026 Koivu GmbH · BSL 1.1</div>
+    </div>
+  </div>
+
+  <!-- ==================== VIEW: ABOUT ==================== -->
+  <div id="view-about" class="view">
+    <img src="./images/alpensign_logo_small_dark.png" alt="AlpenSign" class="welcome-logo" onerror="this.style.display='none'">
+    <div class="welcome-title">AlpenSign</div>
+    <div class="welcome-subtitle">
+      Cryptographically seal payment authorizations and record them as immutable proof on the Solana blockchain.
+    </div>
+
+    <div class="card mt-2">
+      <div class="card-header">
+        <span class="card-title">Three-Layer Trust Model</span>
+      </div>
+      <div class="about-layer">
+        <div class="about-layer-num">1</div>
+        <div>
+          <div class="about-layer-title">Genesis Token · Device Identity</div>
+          <div class="about-layer-desc">The Seeker's soulbound NFT proves the phone is genuine hardware, verified by SKR-staked Guardians through TEEPIN.</div>
+        </div>
+      </div>
+      <div class="about-layer">
+        <div class="about-layer-num">2</div>
+        <div>
+          <div class="about-layer-title">Bank Credential · Client Identity</div>
+          <div class="about-layer-desc">The bank issues a credential via Solana Attestation Service (SAS), binding the client to the verified device. Revocable by the bank.</div>
+        </div>
+      </div>
+      <div class="about-layer">
+        <div class="about-layer-num">3</div>
+        <div>
+          <div class="about-layer-title">Transaction Seal · Payment Authorization</div>
+          <div class="about-layer-desc">The client reviews and confirms with biometric. The Seeker's secure element signs and AlpenSign posts the proof to Solana. Permanent and immutable.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="welcome-pills">
+      <div class="welcome-pill-group-label">Supported Payment Types</div>
+      <div class="welcome-pill-row">
+        <div class="welcome-pill pill-bank">🏦 Bank Payments<br><span style="font-size:0.65rem;opacity:0.7;">SEPA · SIC · Wire</span></div>
+        <div class="welcome-pill pill-3ds">💳 3D-Secure<br><span style="font-size:0.65rem;opacity:0.7;">Visa · Mastercard</span></div>
+      </div>
+      <div class="welcome-pill-group-label" style="margin-top:0.5rem;">Device Capabilities</div>
+      <div class="welcome-pill-row">
+        <div class="welcome-pill pill-seeker">✅ Solana Seeker<br><span style="font-size:0.65rem;opacity:0.7;">Full trust chain · On-chain seals</span></div>
+        <div class="welcome-pill pill-generic">⚠️ Pixel / Other<br><span style="font-size:0.65rem;opacity:0.7;">Local proof · No Genesis Token</span></div>
+      </div>
+    </div>
+
+    <div class="card mt-2">
+      <div class="card-header">
+        <span class="card-title">Security Note</span>
+      </div>
+      <div class="font-sm text-secondary" style="padding: 0 0.5rem 0.5rem;">
+        Your Seeker may occasionally request a PIN instead of fingerprint. This is standard Android security behavior — after reboot, timeout, or multiple failed fingerprint attempts, Android requires PIN verification. Both methods satisfy the biometric-level authentication requirement.
+      </div>
+    </div>
+
+    <button class="btn btn-ghost mt-2" id="btnAboutBack" style="width: 100%;">
+      ← Back to Settings
+    </button>
+
+    <div class="text-center mt-2">
+      <span class="font-xs text-dim">Solana Seeker Hackathon · Monolith 2026</span><br>
+      <a href="https://alpensign.com" class="font-xs" style="color: var(--accent-light); text-decoration: none;">alpensign.com</a>
+      <span class="font-xs text-dim"> · </span>
+      <a href="https://github.com/gbits-io/alpensign" class="font-xs" style="color: var(--accent-light); text-decoration: none;">GitHub</a>
     </div>
   </div>
 

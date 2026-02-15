@@ -321,6 +321,22 @@ async function detectDevice() {
   return state.deviceType;
 }
 
+// Auto-dismiss device banner after 5 seconds
+function autoDismissBanner() {
+  const banner = $('deviceBanner');
+  if (banner && banner.classList.contains('show')) {
+    setTimeout(() => {
+      banner.style.transition = 'opacity 0.5s ease';
+      banner.style.opacity = '0';
+      setTimeout(() => {
+        banner.classList.remove('show');
+        banner.style.opacity = '';
+        banner.style.transition = '';
+      }, 500);
+    }, 5000);
+  }
+}
+
 
 // ============================================================
 // SOLANA RPC (read-only, for balance/confirmation checks)
@@ -417,7 +433,9 @@ function navigateTo(viewName) {
   const view = $(`view-${viewName}`);
   if (view) view.classList.add('active');
 
-  const navItem = document.querySelector(`.nav-item[data-view="${viewName}"]`);
+  // About page keeps Settings highlighted in nav
+  const navTarget = viewName === 'about' ? 'settings' : viewName;
+  const navItem = document.querySelector(`.nav-item[data-view="${navTarget}"]`);
   if (navItem) navItem.classList.add('active');
 
   if (viewName === 'home') updateHomeView();
@@ -466,22 +484,76 @@ async function updateHomeView() {
   if (state.seals.length === 0) {
     container.innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">No seals yet</div></div>';
   } else {
-    container.innerHTML = state.seals.slice(-3).reverse().map(sealItemHTML).join('');
+    container.innerHTML = state.seals.slice(-3).reverse().map(s => sealItemHTML(s, false)).join('');
   }
 }
 
-function sealItemHTML(s) {
+function sealItemHTML(s, expanded) {
   const clickable = s.solanaTxReal && s.solanaTx;
-  return `
-    <div class="history-item" ${clickable ? `onclick="window.open('https://explorer.solana.com/tx/${s.solanaTx}?cluster=devnet','_blank')" style="cursor:pointer;"` : ''}>
+  const explorerUrl = clickable ? `https://explorer.solana.com/tx/${s.solanaTx}?cluster=devnet` : '';
+  const hashShort = s.hash ? s.hash.substring(0, 10) + '…' + s.hash.slice(-6) : '—';
+  const txShort = s.solanaTx ? s.solanaTx.substring(0, 10) + '…' + s.solanaTx.slice(-4) : '—';
+  const ts = formatTime(s.timestamp);
+  const tsLong = new Date(s.timestamp).toLocaleString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+  if (!expanded) {
+    // Compact view for Home (unchanged layout + clickable)
+    return `
+    <div class="history-item" ${clickable ? `onclick="window.open('${explorerUrl}','_blank')" style="cursor:pointer;"` : ''}>
       <div class="history-icon">${s.solanaTxReal ? '✅' : '🔏'}</div>
       <div class="history-details">
         <div class="history-recipient">${s.recipient}</div>
-        <div class="history-time">${formatTime(s.timestamp)}</div>
+        <div class="history-time">${ts}</div>
       </div>
       <div>
         <div class="history-amount">${s.amount}</div>
         <div class="history-status">${s.solanaTxReal ? 'On-chain ✓' : 'Local proof'}</div>
+      </div>
+    </div>`;
+  }
+
+  // Expanded view for History page
+  return `
+    <div class="history-item-expanded">
+      <div class="history-item-header">
+        <div class="history-icon">${s.solanaTxReal ? '✅' : '🔏'}</div>
+        <div class="history-details">
+          <div class="history-recipient">${s.recipient}</div>
+          <div class="history-meta">${s.town || ''}${s.country ? ', ' + s.country : ''}</div>
+        </div>
+        <div>
+          <div class="history-amount">${s.amount}</div>
+          <div class="history-status">${s.solanaTxReal ? 'On-chain ✓' : 'Local proof'}</div>
+        </div>
+      </div>
+      <div class="history-detail-rows">
+        <div class="history-detail-row">
+          <span class="history-detail-label">Time</span>
+          <span class="history-detail-value">${tsLong}</span>
+        </div>
+        <div class="history-detail-row">
+          <span class="history-detail-label">IBAN</span>
+          <span class="history-detail-value font-mono">${s.iban || '—'}</span>
+        </div>
+        <div class="history-detail-row">
+          <span class="history-detail-label">Reference</span>
+          <span class="history-detail-value font-mono">${s.ref || '—'}</span>
+        </div>
+        <div class="history-detail-row">
+          <span class="history-detail-label">Payment Hash</span>
+          <span class="history-detail-value font-mono" title="${s.hash || ''}">${hashShort}</span>
+        </div>
+        <div class="history-detail-row">
+          <span class="history-detail-label">Solana TX</span>
+          ${clickable
+            ? `<a class="history-detail-value font-mono history-link" href="${explorerUrl}" target="_blank">${txShort} ↗</a>`
+            : `<span class="history-detail-value font-mono text-dim">${s.solanaTx ? txShort : '— (local only)'}</span>`
+          }
+        </div>
+        <div class="history-detail-row">
+          <span class="history-detail-label">Device</span>
+          <span class="history-detail-value">${s.deviceType === 'SOLANA_SEEKER' ? 'Seeker · Seed Vault' : s.deviceType || '—'}</span>
+        </div>
       </div>
     </div>`;
 }
@@ -499,7 +571,7 @@ function updateHistoryView() {
     container.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">No seals recorded</div></div>';
     return;
   }
-  container.innerHTML = state.seals.slice().reverse().map(sealItemHTML).join('');
+  container.innerHTML = state.seals.slice().reverse().map(s => sealItemHTML(s, true)).join('');
 }
 
 // ============================================================
@@ -969,13 +1041,50 @@ $('btnSeal').addEventListener('click', async () => {
               const result = await wallet.signAndSendTransactions({
                 payloads: [txBase64],
               });
-              console.log('[MWA] signAndSendTransactions returned');
-              return result[0];
+              console.log('[MWA] signAndSendTransactions returned:', typeof result, result);
+              return result;
             })
-            .then((sigBase64) => {
-              const sigBytes = (sigBase64 instanceof Uint8Array)
-                ? sigBase64
-                : Uint8Array.from(atob(sigBase64), c => c.charCodeAt(0));
+            .then((result) => {
+              // MWA can return signatures in multiple formats:
+              // - { signatures: [Uint8Array] }
+              // - [Uint8Array]
+              // - Uint8Array (single)
+              // - base64 string
+              // - { signatures: [base64string] }
+              let sigRaw;
+              if (result && result.signatures) {
+                sigRaw = result.signatures[0];
+              } else if (Array.isArray(result)) {
+                sigRaw = result[0];
+              } else {
+                sigRaw = result;
+              }
+
+              console.log('[MWA] Signature raw type:', typeof sigRaw,
+                sigRaw instanceof Uint8Array ? '(Uint8Array)' : '',
+                ArrayBuffer.isView(sigRaw) ? '(TypedArray)' : '',
+                typeof sigRaw === 'string' ? `len=${sigRaw.length}` : '');
+
+              let sigBytes;
+              if (sigRaw instanceof Uint8Array) {
+                sigBytes = sigRaw;
+              } else if (ArrayBuffer.isView(sigRaw) || sigRaw instanceof ArrayBuffer) {
+                sigBytes = new Uint8Array(sigRaw.buffer || sigRaw);
+              } else if (typeof sigRaw === 'string') {
+                // Could be base64 or base58 — try base64 first
+                try {
+                  sigBytes = Uint8Array.from(atob(sigRaw), c => c.charCodeAt(0));
+                } catch (e) {
+                  // Already base58? Return as-is
+                  console.log('[MWA] Signature appears to be base58 already:', sigRaw.substring(0, 20));
+                  resolve(sigRaw);
+                  return;
+                }
+              } else {
+                throw new Error('Unknown signature format: ' + typeof sigRaw + ' = ' + JSON.stringify(sigRaw).substring(0, 100));
+              }
+
+              console.log('[MWA] Signature bytes length:', sigBytes.length);
               const txSig = base58encode(sigBytes);
               console.log('[MWA] ✅ TX confirmed:', txSig);
               resolve(txSig);
@@ -1161,6 +1270,10 @@ function copyWallet() {
 }
 window.copyWallet = copyWallet;
 
+// About page
+$('btnAbout').addEventListener('click', () => navigateTo('about'));
+$('btnAboutBack').addEventListener('click', () => navigateTo('settings'));
+
 // ============================================================
 // INIT
 // ============================================================
@@ -1168,6 +1281,7 @@ window.copyWallet = copyWallet;
 async function init() {
   loadState();
   await detectDevice();
+  autoDismissBanner();
   initSolanaRPC();
   updateHeaderBadge();
 
