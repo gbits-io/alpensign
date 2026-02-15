@@ -133,20 +133,28 @@ The bank computes the same SHA-256 hash from the original payment request. If it
 
 ```
 alpensign/
-├── index.html              # Landing page
-├── app.html                # AlpenSign app (single-page)
-├── app.js                  # App logic: enrollment, sealing, MWA, Solana
-├── llms.txt                # LLM-ready project context
-├── manifest.json           # PWA manifest
-├── images/
-│   ├── alpensign_logo_small_dark.png
-│   ├── alpensign_gemini_logo.png
-│   ├── favicon/
-│   └── screenshots/
-└── docs/
-    ├── AlpenSign_Extension_Roadmap.md
-    └── MWA_INTEGRATION_LEARNINGS.md
+|-- README.md                    # This file
+|-- LICENSE                      # BSL 1.1
+|-- llms.txt                     # LLM-ready project context
+|
+|-- site/                        # Deployed to alpensign.com (zero build step)
+|   |-- index.html               #   Landing page
+|   |-- app.html                 #   AlpenSign app (single-page)
+|   |-- app.js                   #   App logic: enrollment, sealing, MWA, Solana
+|   |-- llms.txt                 #   Copy of root llms.txt (served at /llms.txt)
+|   +-- images/
+|       |-- alpensign_logo_small_dark.png
+|       |-- alpensign_gemini_logo.png
+|       |-- favicon/
+|       +-- screenshots/
+|
++-- docs/                        # Project documentation (not deployed)
+    |-- AlpenSign_Extension_Roadmap.md
+    |-- MWA_INTEGRATION_LEARNINGS.md
+    +-- DEMO_SCRIPT.md
 ```
+
+This is a **zero-build-step project**. There is no bundler, no transpiler, no `npm install`. The `site/` folder is deployed as-is to any static host.
 
 ---
 
@@ -160,12 +168,12 @@ alpensign/
 
 ### Run Locally
 
-AlpenSign is a static web app with no build step and no backend.
+No build step. No `npm install`. Just serve the `site/` folder.
 
 ```bash
 # Clone the repo
 git clone https://github.com/gbits-io/alpensign.git
-cd alpensign
+cd alpensign/site
 
 # Serve with any static server
 python3 -m http.server 8000
@@ -179,17 +187,17 @@ Open `http://localhost:8000/app.html` on your Seeker or Android device.
 
 ### Deploy
 
-AlpenSign is designed for static hosting. Deploy the repo contents to any static host:
+Deploy the `site/` folder to any static host:
 
 ```bash
 # Netlify
-netlify deploy --prod --dir .
+netlify deploy --prod --dir site
 
 # Vercel
-vercel --prod
+vercel --prod --root-directory site
 
 # GitHub Pages
-# Enable in repo settings → Pages → Source: main branch
+# Enable in repo settings → Pages → Source: main branch, /site folder
 ```
 
 The live version runs at [alpensign.com](https://alpensign.com).
