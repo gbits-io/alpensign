@@ -62,7 +62,7 @@ When a client loses their Seeker, the bank revokes the old SAS credential and th
 
 ## Team
 - Roman — Founder · Product Management, Development (redpill.skr)
-- Alexandr — Engineering (Seeker app and Solana integration)
+- Alexandr — Fullstack Development (focus: demo backend)
 - AI: Claude + Gemini — AI Engineering Partners
 
 ## License

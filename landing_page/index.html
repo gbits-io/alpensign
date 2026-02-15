@@ -1127,6 +1127,17 @@
     line-height: 1;
   }
 
+  .btn-placeholder {
+    opacity: 0.5;
+    cursor: default;
+    border-style: dashed !important;
+  }
+
+  .btn-placeholder:hover {
+    border-color: var(--border) !important;
+    color: var(--text-secondary) !important;
+  }
+
   /* ---- Toast ---- */
   .toast {
     position: fixed;
@@ -1224,7 +1235,14 @@
 
     .punchline { padding: 4rem 1.5rem; }
     .flow-container { padding: 1.5rem; }
-    .flow-slide img { max-height: 50vh; }
+    .flow-slide img {
+      max-height: 50vh;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      padding: 4px;
+      background: var(--bg-primary);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
   }
 
   /* ---- Scroll animations ---- */
@@ -1271,9 +1289,11 @@
       <span class="btn-ai-icon">⌘</span> Ask AI about AlpenSign
     </button>
   </div>
-  
+
   <div class="hero-actions">
-    <a href="#join" class="btn-secondary">Join the Team</a> 
+    <a href="#" class="btn-secondary btn-placeholder" onclick="event.preventDefault()">📲 dApp Store — coming soon</a>
+    <a href="#" class="btn-secondary btn-placeholder" onclick="event.preventDefault()">▶ Promo Video — coming soon</a>
+    <a href="#join" class="btn-secondary">Join the Team</a>
   </div>
 
   <!--
@@ -1528,8 +1548,8 @@
     <div class="team-card reveal">
       <div class="team-avatar">A</div>
       <h3>Alexandr</h3>
-      <div class="role">Engineering</div>
-      <p class="bio">Building the Seeker app and Solana integration layer.</p>
+      <div class="role">Fullstack Dev (Demo Backend)</div>
+      <p class="bio">Building the demo backend and Solana integration layer.</p>
     </div>
     <div class="team-card reveal">
       <div class="team-avatar">⌘</div>
