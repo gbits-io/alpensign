@@ -878,7 +878,6 @@ $('btnSimulateRequest').addEventListener('click', () => {
   state.currentRequest = payment;
   $('notifBody').textContent = `${payment.amount} to ${payment.recipient}`;
   $('notification').classList.add('show');
-  setTimeout(() => { $('notification').classList.remove('show'); }, 5000);
 });
 
 function openSealRequest() {
@@ -1310,6 +1309,13 @@ async function init() {
     $('view-enroll').classList.add('active');
   } else {
     $('view-welcome').classList.add('active');
+  }
+
+  // Dismiss splash screen
+  const splash = $('splashScreen');
+  if (splash) {
+    splash.classList.add('fade-out');
+    setTimeout(() => splash.remove(), 700);
   }
 }
 
