@@ -31,19 +31,19 @@ AlpenSign creates an independent evidence chain — from verified hardware throu
 ## Three-Layer Trust Model
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  LAYER 1 — Genesis Token                                        │
-│  Device is genuine                                               │
-│  Soulbound NFT · TEEPIN/SKR Guardians · Decentralized           │
-├─────────────────────────────────────────────────────────────────┤
-│  LAYER 2 — Bank Credential                                      │
-│  Client is authorized                                            │
-│  Solana Attestation Service (SAS) · Revocable by bank            │
-├─────────────────────────────────────────────────────────────────┤
-│  LAYER 3 — Transaction Seal                                      │
-│  Payment is confirmed                                            │
-│  Biometric + Seed Vault signature · On-chain memo · Immutable    │
-└─────────────────────────────────────────────────────────────────┘
++-------------------------------------------------------------------+
+|  LAYER 1 - Genesis Token                                          |
+|  Device is genuine                                                |
+|  Soulbound NFT, TEEPIN/SKR Guardians, Decentralized              |
++-------------------------------------------------------------------+
+|  LAYER 2 - Bank Credential                                        |
+|  Client is authorized                                             |
+|  Solana Attestation Service (SAS), Revocable by bank              |
++-------------------------------------------------------------------+
+|  LAYER 3 - Transaction Seal                                       |
+|  Payment is confirmed                                             |
+|  Biometric + Seed Vault signature, On-chain memo, Immutable       |
++-------------------------------------------------------------------+
 ```
 
 **Layer 1 — Genesis Token (Device Identity):** The Seeker's soulbound NFT proves the phone is real hardware, verified by SKR-staked Guardians through TEEPIN. No Apple. No Google. No centralized attestation.
@@ -199,33 +199,35 @@ The live version runs at [alpensign.com](https://alpensign.com).
 ## Architecture
 
 ```
-┌──────────────────────────┐
-│      Solana Seeker        │
-│                           │
-│  ┌─────────────────────┐  │
-│  │   Seed Vault (TEE)  │  │     ┌──────────────────────┐
-│  │   Private keys       │  │     │   Solana (Devnet)     │
-│  │   Biometric gate     │  │     │                       │
-│  └────────┬────────────┘  │     │   • Memo transactions  │
-│           │ MWA            │     │   • Genesis Token NFT  │
-│  ┌────────┴────────────┐  │     │   • SAS credentials    │
-│  │   AlpenSign App      │──────▶│   • Transaction seals  │
-│  │   (PWA / TWA)        │  │     │                       │
-│  │                       │  │     └──────────────────────┘
-│  │   • WebAuthn enroll   │  │
-│  │   • Payment review    │  │     ┌──────────────────────┐
-│  │   • Hash + seal       │  │     │   Bank (future)       │
-│  │   • History / verify  │  │     │                       │
-│  └───────────────────────┘  │     │   • Issues credential  │
-│                             │     │   • Sends pay request   │
-│  ┌───────────────────────┐  │     │   • Verifies seals     │
-│  │   Genesis Token (NFT) │  │     │   • Stores evidence    │
-│  │   TEEPIN attestation  │  │     └──────────────────────┘
-│  └───────────────────────┘  │
-└──────────────────────────────┘
++-------------------------------+
+|        Solana Seeker          |
+|                               |
+|  +-------------------------+  |
+|  |  Seed Vault (TEE)       |  |
+|  |  Private keys           |  |
+|  |  Biometric gate         |  |
+|  +-------------------------+  |
+|              | MWA            |
+|  +-------------------------+  |      +-------------------------+
+|  |  AlpenSign App          |  |      |  Solana (Devnet)        |
+|  |  (PWA / TWA)            |  |      |                         |
+|  |                         |  |      |  - Memo transactions    |
+|  |  - WebAuthn enroll      |  |      |  - Genesis Token NFT    |
+|  |  - Payment review       |  |      |  - SAS credentials      |
+|  |  - Hash + seal          |  |      |  - Transaction seals    |
+|  |  - History / verify     |  |      +-------------------------+
+|  +-------------------------+  |
+|                               |      +-------------------------+
+|  +-------------------------+  |      |  Bank (future)          |
+|  |  Genesis Token (NFT)    |  |      |                         |
+|  |  TEEPIN attestation     |  |      |  - Issues credential    |
+|  +-------------------------+  |      |  - Sends pay request    |
+|                               |      |  - Verifies seals       |
++-------------------------------+      |  - Stores evidence      |
+                                       +-------------------------+
 
-        No AlpenSign server.
-        The app talks directly to Solana RPC.
+       No AlpenSign server.
+    The app talks directly to Solana RPC.
 ```
 
 ---
