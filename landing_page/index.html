@@ -19,16 +19,19 @@
     --bg-card-hover: #f7f6f2;
     --accent: #1a5f3a;
     --accent-light: #267a4d;
+    --accent-vivid: #22c55e;
     --accent-dim: rgba(26, 95, 58, 0.08);
     --accent-glow: rgba(26, 95, 58, 0.04);
     --alpine-blue: #2c6fbb;
     --alpine-dim: rgba(44, 111, 187, 0.08);
+    --amber: #f59e0b;
+    --amber-dim: rgba(245, 158, 11, 0.10);
     --text-primary: #1c1c1a;
     --text-secondary: #555550;
     --text-dim: #8a8a82;
     --border: rgba(26, 95, 58, 0.18);
     --border-subtle: rgba(0, 0, 0, 0.08);
-    --seal-gradient: linear-gradient(135deg, #1a5f3a 0%, #267a4d 50%, #1a5f3a 100%);
+    --seal-gradient: linear-gradient(135deg, #1a5f3a 0%, #22c55e 100%);
     --warm-red: #b84233;
   }
 
@@ -161,13 +164,13 @@
     display: inline-flex;
     align-items: center;
     gap: 0.6rem;
-    background: var(--accent-dim);
-    border: 1px solid var(--border);
+    background: var(--amber-dim);
+    border: 1px solid rgba(245, 158, 11, 0.25);
     padding: 0.45rem 1rem;
     border-radius: 100px;
     font-size: 0.73rem;
     font-weight: 600;
-    color: var(--accent);
+    color: var(--amber);
     letter-spacing: 0.08em;
     text-transform: uppercase;
     margin-bottom: 2.5rem;
@@ -179,7 +182,7 @@
     content: '';
     width: 6px;
     height: 6px;
-    background: var(--accent);
+    background: var(--amber);
     border-radius: 50%;
     animation: pulse 2s infinite;
   }
@@ -348,7 +351,7 @@
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: var(--accent);
+    background: var(--accent-vivid);
   }
 
   .section-list li strong {
@@ -1095,6 +1098,7 @@
 
   .bar-fill-accent {
     background: var(--seal-gradient);
+    box-shadow: 0 2px 12px rgba(34, 197, 94, 0.2);
   }
 
   @media (max-width: 900px) {
@@ -1215,7 +1219,7 @@
   <div class="hero-badge">Solana Seeker Hackathon Monolith · Q1 2026</div>
   <h1>With <em>AlpenSign</em> the <em>Seeker phone</em> can be used to <em>seal</em> bank payments on a public ledger.</h1>
   <p class="hero-sub" style="animation-delay: 0.25s;">
-    AlpenSign turns the Solana Seeker phone into a <strong>Mobile HSM</strong> — an independent, client-side device that seals bank payments and Visa 3D-Secure transactions with biometric confirmation and posts the proof to an immutable public ledger. <br > No bank server. No Apple. No Google. No AlpenSign backend. The Seeker phone signs, TEEPIN attests, Solana records. The only intermediary is math. The proof lives on a public ledger, not only on the bank's server.
+    AlpenSign turns the Solana Seeker phone into a <strong>Mobile HSM</strong> — an independent, client-side device that seals bank payments and Visa 3D-Secure transactions with biometric confirmation and posts the proof to an immutable public ledger. No bank server. No Apple. No Google. No AlpenSign backend. The Seeker phone signs, TEEPIN attests, Solana records. The only intermediary is math. The proof lives on a public ledger, not only on the bank's server.
   </p>
   <p class="hero-sub" style="font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; letter-spacing: 0.03em; color: var(--text-dim);">
     <a href="#tech" style="color: var(--text-dim); text-decoration: none; border-bottom: 1px dashed var(--border); transition: color 0.3s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-dim)'">Built on</a>: Seed Vault · TEEPIN/SKR Guardians · Solana Attestation Service · Solana Mobile Stack / MWA · Soulbound NFTs
