@@ -1050,6 +1050,65 @@
 
   .email-protect:hover { color: var(--accent-light); }
 
+  /* ---- Bar Chart ---- */
+  .bar-chart {
+    max-width: 680px;
+    margin: 3rem auto 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1.4rem;
+  }
+
+  .bar-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .bar-label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    line-height: 1.3;
+  }
+
+  .bar-item-highlight .bar-label {
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  .bar-track {
+    width: 100%;
+    height: 32px;
+    background: var(--bg-secondary);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .bar-fill {
+    height: 100%;
+    width: var(--bar-pct);
+    background: rgba(26, 95, 58, 0.22);
+    border-radius: 6px;
+    transition: width 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  .bar-fill-accent {
+    background: var(--seal-gradient);
+  }
+
+  @media (max-width: 900px) {
+    .bar-chart {
+      gap: 1.2rem;
+    }
+    .bar-label {
+      font-size: 0.78rem;
+    }
+    .bar-track {
+      height: 26px;
+    }
+  }
+
   /* ---- Demo Video ---- */
   .demo-video-wrapper {
     display: flex;
@@ -1145,29 +1204,25 @@
     <a href="#demo">Demo</a>
     <a href="#why">Why</a>
     <a href="#how">How it works</a>
-    <a href="#tech">Tech</a>
     <a href="#economy">Economy</a>
     <a href="#team">Team</a>
+    <a href="#tech">Tech</a>
     <a href="https://github.com/gbits-io/alpensign/" target="_blank" rel="noopener" class="nav-cta">GitHub →</a>
   </div>
 </nav>
 
 <section class="hero">
   <div class="hero-badge">Solana Seeker Hackathon Monolith · Q1 2026</div>
-<!--  <h1>The Seeker is the phone that can <em>seal</em> a bank payment on a public ledger.</h1> -->
-  <h1>With <em>Alpensign</em> the Seeker phone can be used to <em>seal</em> bank payments on a public ledger.</h1>
+  <h1>With <em>AlpenSign</em> the <em>Seeker phone</em> can be used to <em>seal</em> bank payments on a public ledger.</h1>
   <p class="hero-sub" style="animation-delay: 0.25s;">
-    <strong style="color: var(--text-primary);">
-      Core Idea: </strong> Leverage the Seeker’s Secure Element and Solana as an independent, out-of-band authorization layer for both <strong>bank payments</strong> and <strong>Visa 3D-Secure credit card transactions</strong>. The phone doesn't replace the bank's auth — it acts as a <strong>Mobile HSM</strong> and attests that the client confirmed the transaction independently.
-        </p>
-  <p class="hero-sub">
-    Seeker phone + SMS + TEEPIN + SKR + Solana Attestation Service (SAS) + non-transferable NFTs
-   </p>
+    AlpenSign turns the Solana Seeker phone into a <strong>Mobile HSM</strong> — an independent, client-side device that seals bank payments and Visa 3D-Secure transactions with biometric confirmation and posts the proof to an immutable public ledger. <br > No bank server. No Apple. No Google. No AlpenSign backend. The Seeker phone signs, TEEPIN attests, Solana records. The only intermediary is math. The proof lives on a public ledger, not only on the bank's server.
+  </p>
+  <p class="hero-sub" style="font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; letter-spacing: 0.03em; color: var(--text-dim);">
+    <a href="#tech" style="color: var(--text-dim); text-decoration: none; border-bottom: 1px dashed var(--border); transition: color 0.3s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-dim)'">Built on</a>: Seed Vault · TEEPIN/SKR Guardians · Solana Attestation Service · Solana Mobile Stack / MWA · Soulbound NFTs
+  </p>
   <div class="hero-actions">
-    <a href="#demo" class="btn-primary">Watch Demo</a>
     <a href="./app.html/" target="_blank" rel="noopener" class="btn-primary">AlpenSign App</a>
     <a href="https://github.com/gbits-io/alpensign/" target="_blank" rel="noopener" class="btn-primary">View on GitHub</a>
-
   </div>
   
   <div class="hero-actions">
@@ -1216,6 +1271,46 @@
       ></iframe>
     </div>
   </div>
+</section>
+
+<section id="security-levels" style="padding-top: 3rem; padding-bottom: 3rem;">
+  <div class="reveal" style="text-align: center;">
+    <div class="section-label">Security Comparison</div>
+    <h2 class="section-title" style="margin-left: auto; margin-right: auto;">Mobile Banking Authorization — Relative Security Level</h2>
+    <p class="section-desc" style="margin-left: auto; margin-right: auto;">
+      Each layer adds independence from centralized trust and strength of evidence in dispute.
+    </p>
+  </div>
+
+  <div class="bar-chart reveal">
+    <div class="bar-item">
+      <div class="bar-label">App + SMS</div>
+      <div class="bar-track">
+        <div class="bar-fill" style="--bar-pct: 33.3%;"></div>
+      </div>
+    </div>
+    <div class="bar-item">
+      <div class="bar-label">App + AccessApp</div>
+      <div class="bar-track">
+        <div class="bar-fill" style="--bar-pct: 55.5%;"></div>
+      </div>
+    </div>
+    <div class="bar-item">
+      <div class="bar-label">App + TitanChip + AccessApp</div>
+      <div class="bar-track">
+        <div class="bar-fill" style="--bar-pct: 77.7%;"></div>
+      </div>
+    </div>
+    <div class="bar-item bar-item-highlight">
+      <div class="bar-label">App + Seeker/TEEPIN + AlpenSign</div>
+      <div class="bar-track">
+        <div class="bar-fill bar-fill-accent" style="--bar-pct: 100%;"></div>
+      </div>
+    </div>
+  </div>
+  <p class="bar-footnote reveal" style="text-align: center; font-size: 0.78rem; color: var(--text-dim); margin-top: 1.5rem; max-width: 600px; margin-left: auto; margin-right: auto;">
+    Scale: relative independence from centralized trust &amp; evidence strength in payment disputes. Indicative, not certified.
+  </p>
 </section>
 
 <section id="why">
@@ -1346,109 +1441,25 @@
   </blockquote>
 </div>
 
-<section id="tech">
-  <div class="reveal">
-    <div class="section-label">Built With</div>
-    <h2 class="section-title">Solana-native. Seeker-optimized. Bank-ready.</h2>
-  </div>
-
-  <div class="stack-grid">
-    <div class="stack-card reveal">
-      <div class="stack-icon seeker">🔐</div>
-      <div>
-        <h3>Seeker Seed Vault</h3>
-        <p>Hardware-isolated key storage with biometric-gated signing. Keys never leave the secure element. The Genesis Token anchors device identity on-chain.</p>
-      </div>
-    </div>
-    <div class="stack-card reveal">
-      <div class="stack-icon sas">📜</div>
-      <div>
-        <h3>Solana Attestation Service</h3>
-        <p>Permissionless credential protocol from the Solana Foundation. Used for both bank credentials and transaction seals. No custom smart contracts needed.</p>
-      </div>
-    </div>
-    <div class="stack-card reveal">
-      <div class="stack-icon solana">⚡</div>
-      <div>
-        <h3>Solana Mobile Stack</h3>
-        <p>Native wallet integration, dApp runtime, and TEEPIN device verification. The Seeker is the only phone where secure signing and Solana attestation are integrated at the OS level.</p>
-      </div>
-    </div>
-    <div class="stack-card reveal">
-      <div class="stack-icon security">🛡️</div>
-      <div>
-        <h3>TEEPIN + SKR Guardians</h3>
-        <p>Trusted Execution Environment Platform Infrastructure Network. SKR-staked Guardians verify device authenticity — the economic security layer behind the Genesis Token.</p>
-      </div>
-    </div>
-  </div>
-
-  <!--
-  <div class="comparison reveal">
-    <table>
-      <thead>
-        <tr>
-          <th>Capability</th>
-          <th>Apple / Google Devices</th>
-          <th>Solana Seeker + AlpenSign</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>Secure element signing</td>
-          <td><span class="check">✓</span> Titan M2 / Secure Enclave</td>
-          <td><span class="check">✓</span> Seed Vault</td>
-        </tr>
-        <tr>
-          <td>On-chain device identity</td>
-          <td><span class="cross">✗</span> None</td>
-          <td><span class="check">✓</span> Genesis Token (soulbound)</td>
-        </tr>
-        <tr>
-          <td>Device genuineness proof</td>
-          <td>Play Integrity / DeviceCheck (centralized)</td>
-          <td>TEEPIN + Guardians (decentralized)</td>
-        </tr>
-        <tr>
-          <td>Bank credential binding</td>
-          <td>Wallet has no hardware binding</td>
-          <td>Credential bound to Genesis Token wallet</td>
-        </tr>
-        <tr>
-          <td>Trust dependency</td>
-          <td>Apple / Google (revocable, opaque)</td>
-          <td>Math + decentralized network</td>
-        </tr>
-        <tr>
-          <td>Revocation risk</td>
-          <td>Vendor can revoke at will</td>
-          <td>No single party can revoke</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</section>
--->
 <section id="economy">
   <div class="reveal">
-    <div class="section-label">SKR Economy</div>
-    <h2 class="section-title">Economic Security for Hardware</h2>
+    <div class="section-label">TEEPIN &amp; SKR Economy</div>
+    <h2 class="section-title">Why you can trust the device — without trusting AlpenSign.</h2>
     <p class="section-desc">
-      Hardware integrity is not just a claim; it is an economic guarantee. 
-      AlpenSign leverages the SKR network to ensure your device remains a trusted vault.
+      Traditional device attestation depends on Apple or Google saying “this phone is genuine.” TEEPIN replaces that with economic skin-in-the-game: independent Guardians stake SKR tokens to attest Seeker hardware integrity. If a Guardian falsely attests a compromised device, they lose their stake. For banks, this means the device behind every AlpenSign seal is verified by a decentralized network with real financial consequences — not by a vendor’s promise.
     </p>
   </div>
 
   <div class="problem-grid" style="margin-top: 3.5rem;">
     <div class="problem-card reveal">
       <span class="problem-icon">⚖️</span>
-      <h3>Stake to Verify</h3>
-      <p>Users stake SKR tokens to Verify Device Integrity. This decentralized consensus ensures that the hardware remains untampered and secure through economic incentives.</p>
+      <h3>Guardians, not Gatekeepers</h3>
+      <p>SKR-staked Guardians independently verify that each Seeker’s Trusted Execution Environment is untampered. No single entity controls attestation, and no single entity can revoke it.</p>
     </div>
     <div class="problem-card reveal">
       <span class="problem-icon">🩺</span>
-      <h3>Hardware Health Attestation</h3>
-      <p>By staking SKR to a Guardian, the user's AlpenSign app receives a 'Hardware Health Attestation' — a cryptographic proof that the Seeker's secure environment is healthy and genuine.</p>
+      <h3>Economic Guarantee</h3>
+      <p>Device integrity isn’t just a technical claim — it’s backed by staked capital. Fraudulent attestation means slashing. This gives banks a trust anchor that doesn’t depend on AlpenSign, Apple, or Google remaining cooperative.</p>
     </div>
   </div>
   
@@ -1513,6 +1524,90 @@
     <li><strong>Swiss &amp; EU compatible</strong> — Aligns with ZertES, eIDAS trust services, and PSD2 independent authentication requirements.</li>
   </ul>
 </section>
+
+<section id="tech">
+  <div class="reveal">
+    <div class="section-label">Built With</div>
+    <h2 class="section-title">Solana-native. Seeker-optimized. Bank-ready.</h2>
+  </div>
+
+  <div class="stack-grid">
+    <div class="stack-card reveal">
+      <div class="stack-icon seeker">🔐</div>
+      <div>
+        <h3>Seeker Seed Vault</h3>
+        <p>Hardware-isolated key storage with biometric-gated signing. Keys never leave the secure element. The Genesis Token anchors device identity on-chain.</p>
+      </div>
+    </div>
+    <div class="stack-card reveal">
+      <div class="stack-icon sas">📜</div>
+      <div>
+        <h3>Solana Attestation Service</h3>
+        <p>On-chain attestation protocol for issuing verifiable credentials and transaction seals. AlpenSign uses SAS for both bank credential binding and payment seal records. No custom smart contracts needed.</p>
+      </div>
+    </div>
+    <div class="stack-card reveal">
+      <div class="stack-icon solana">⚡</div>
+      <div>
+        <h3>Solana Mobile Stack</h3>
+        <p>Native wallet integration via Mobile Wallet Adapter (MWA), dApp runtime, and TEEPIN device verification. The Seeker is the only phone where secure signing and Solana attestation are integrated at the OS level.</p>
+      </div>
+    </div>
+    <div class="stack-card reveal">
+      <div class="stack-icon security">🛡️</div>
+      <div>
+        <h3>TEEPIN + SKR Guardians</h3>
+        <p>Trusted Execution Environment Platform Infrastructure Network. SKR-staked Guardians verify device authenticity — the economic security layer behind the Genesis Token.</p>
+      </div>
+    </div>
+  </div>
+
+  <!--
+  <div class="comparison reveal">
+    <table>
+      <thead>
+        <tr>
+          <th>Capability</th>
+          <th>Apple / Google Devices</th>
+          <th>Solana Seeker + AlpenSign</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Secure element signing</td>
+          <td><span class="check">✓</span> Titan M2 / Secure Enclave</td>
+          <td><span class="check">✓</span> Seed Vault</td>
+        </tr>
+        <tr>
+          <td>On-chain device identity</td>
+          <td><span class="cross">✗</span> None</td>
+          <td><span class="check">✓</span> Genesis Token (soulbound)</td>
+        </tr>
+        <tr>
+          <td>Device genuineness proof</td>
+          <td>Play Integrity / DeviceCheck (centralized)</td>
+          <td>TEEPIN + Guardians (decentralized)</td>
+        </tr>
+        <tr>
+          <td>Bank credential binding</td>
+          <td>Wallet has no hardware binding</td>
+          <td>Credential bound to Genesis Token wallet</td>
+        </tr>
+        <tr>
+          <td>Trust dependency</td>
+          <td>Apple / Google (revocable, opaque)</td>
+          <td>Math + decentralized network</td>
+        </tr>
+        <tr>
+          <td>Revocation risk</td>
+          <td>Vendor can revoke at will</td>
+          <td>No single party can revoke</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+-->
 
 <section id="join" class="cta-section">
   <div class="cta-box reveal">
