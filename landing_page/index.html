@@ -1050,6 +1050,39 @@
 
   .email-protect:hover { color: var(--accent-light); }
 
+  /* ---- Demo Video ---- */
+  .demo-video-wrapper {
+    display: flex;
+    justify-content: center;
+    margin-top: 3rem;
+  }
+
+  .demo-video-frame {
+    position: relative;
+    width: 350px;
+    aspect-ratio: 9 / 16;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1.5px solid var(--border);
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.1);
+    background: #000;
+  }
+
+  .demo-video-frame iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+  }
+
+  @media (max-width: 900px) {
+    .demo-video-frame {
+      width: 280px;
+    }
+  }
+
   /* ---- Responsive ---- */
   @media (max-width: 900px) {
     section { padding: 4rem 1.5rem; }
@@ -1109,6 +1142,7 @@
 <nav>
   <a href="#" class="nav-logo"><img src="./images/alpensign_gemini_logo.png" alt="AlpenSign" class="nav-logo-img"> <span>Monolith 2026</span></a>
   <div class="nav-links">
+    <a href="#demo">Demo</a>
     <a href="#why">Why</a>
     <a href="#how">How it works</a>
     <a href="#tech">Tech</a>
@@ -1130,7 +1164,7 @@
     Seeker phone + SMS + TEEPIN + SKR + Solana Attestation Service (SAS) + non-transferable NFTs
    </p>
   <div class="hero-actions">
-    <a href="./videos/alpensign-01.mp4/" target="_blank" rel="noopener" class="btn-primary">Demo Video (DRAFT)</a>
+    <a href="#demo" class="btn-primary">Watch Demo</a>
     <a href="./app.html/" target="_blank" rel="noopener" class="btn-primary">AlpenSign App</a>
     <a href="https://github.com/gbits-io/alpensign/" target="_blank" rel="noopener" class="btn-primary">View on GitHub</a>
 
@@ -1161,6 +1195,29 @@
   </div>
   -->
 </section>
+
+<section id="demo">
+  <div class="reveal" style="text-align: center;">
+    <div class="section-label">Demo</div>
+    <h2 class="section-title" style="margin-left: auto; margin-right: auto;">See AlpenSign in action.</h2>
+    <p class="section-desc" style="margin-left: auto; margin-right: auto;">
+      A walkthrough of the transaction sealing flow on the Solana Seeker phone.
+    </p>
+  </div>
+
+  <div class="demo-video-wrapper reveal">
+    <div class="demo-video-frame">
+      <iframe
+        src="https://www.youtube.com/embed/8h8cihiz0Fw"
+        title="AlpenSign Demo Video"
+        frameborder="0"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowfullscreen
+      ></iframe>
+    </div>
+  </div>
+</section>
+
 <section id="why">
   <div class="reveal">
     <div class="section-label">The Problem</div>
