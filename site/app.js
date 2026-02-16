@@ -201,6 +201,8 @@ let state = {
   walletAddr: null,       // Real Seed Vault wallet address (base58)
   mwaAuthToken: null,     // MWA reauthorization token
   mwaWalletUriBase: null, // Custom wallet URI for faster reconnection
+  genesisVerified: false, // True if SGT ownership confirmed on mainnet
+  genesisTokenMint: null, // SGT mint address (real on-chain data)
   seals: [],
   currentRequest: null,
   deviceType: 'UNKNOWN',
@@ -252,6 +254,33 @@ function formatTime(ts) {
 }
 
 function isSeekerDevice() { return state.deviceType === 'SOLANA_SEEKER'; }
+
+// ---- Genesis Token (SGT) Verification ----
+// Real on-chain check via beeman's open-source SGT indexer
+// https://github.com/beeman/solana-mobile-seeker-genesis-holders
+const SGT_API = 'https://sgt-api.beeman.dev/api/holders';
+
+async function verifySGT(walletAddress) {
+  try {
+    console.log('[SGT] Verifying Genesis Token for:', walletAddress);
+    const res = await fetch(`${SGT_API}/${walletAddress}`);
+    if (res.status === 404) {
+      console.log('[SGT] Wallet is not an SGT holder (404)');
+      return null;
+    }
+    if (!res.ok) {
+      console.warn('[SGT] API returned status:', res.status);
+      return null;
+    }
+    const data = await res.json();
+    const mint = data.mints?.[0]?.mint || null;
+    if (mint) console.log('[SGT] ✅ Verified. Mint:', mint);
+    return mint;
+  } catch (e) {
+    console.warn('[SGT] Verification failed (network?):', e.message);
+    return null; // Fail open — allow enrollment with warning
+  }
+}
 
 // ============================================================
 // DEVICE DETECTION (Client Hints + UA fallback)
@@ -400,6 +429,8 @@ function saveState() {
     walletAddr: state.walletAddr,
     mwaAuthToken: state.mwaAuthToken,
     mwaWalletUriBase: state.mwaWalletUriBase,
+    genesisVerified: state.genesisVerified,
+    genesisTokenMint: state.genesisTokenMint,
     seals: state.seals,
     welcomeSeen: state.welcomeSeen,
   }));
@@ -414,6 +445,8 @@ function loadState() {
       state.walletAddr = saved.walletAddr || null;
       state.mwaAuthToken = saved.mwaAuthToken || null;
       state.mwaWalletUriBase = saved.mwaWalletUriBase || null;
+      state.genesisVerified = saved.genesisVerified || false;
+      state.genesisTokenMint = saved.genesisTokenMint || null;
       state.seals = saved.seals || [];
       state.welcomeSeen = saved.welcomeSeen || false;
     }
@@ -612,6 +645,20 @@ async function updateSettingsView() {
     reconnectBtn.classList.add('hidden');
   }
 
+  // Genesis Token status
+  const sgtEl = $('settingsGenesis');
+  if (state.genesisVerified && state.genesisTokenMint) {
+    const short = state.genesisTokenMint.substring(0, 8) + '...' + state.genesisTokenMint.slice(-4);
+    sgtEl.textContent = `Verified ✓ ${short}`;
+    sgtEl.style.color = 'var(--purple)';
+  } else if (state.walletAddr && isSeekerDevice()) {
+    sgtEl.textContent = 'Not found ⚠';
+    sgtEl.style.color = 'var(--amber)';
+  } else {
+    sgtEl.textContent = '—';
+    sgtEl.style.color = '';
+  }
+
   // MWA diagnostic status
   const mwaEl = $('settingsMWAStatus');
   if (mwaReady) {
@@ -640,7 +687,9 @@ function adaptSealStepsForDevice() {
   if (isSeekerDevice()) {
     $('step-auth-sub').textContent = 'Seed Vault signing';
     $('step-sign-text').textContent = 'Sign with Seed Vault';
-    $('step-sign-sub').textContent = 'ECDSA-SHA256 (P-256) · Hardware-bound';
+    $('step-sign-sub').textContent = state.genesisVerified
+      ? 'ECDSA-SHA256 (P-256) · Hardware-bound · SGT ✓'
+      : 'ECDSA-SHA256 (P-256) · Hardware-bound';
     $('step-post-text').textContent = 'Post Seal to Solana';
     $('step-post-sub').textContent = 'Memo via MWA → Seed Vault → Devnet';
     $('step-confirm-text').textContent = 'Seal Confirmed';
@@ -668,8 +717,14 @@ function adaptEnrollmentForDevice() {
     cred.textContent = 'Hardware-Attested (Seed Vault)';
     cred.style.color = 'var(--accent-light)';
     tokenLabel.textContent = 'Genesis Token';
-    tokenValue.textContent = 'Verified ✓';
-    tokenValue.style.color = 'var(--purple)';
+    if (state.genesisVerified && state.genesisTokenMint) {
+      const short = state.genesisTokenMint.substring(0, 8) + '...' + state.genesisTokenMint.slice(-4);
+      tokenValue.textContent = `Verified ✓ ${short}`;
+      tokenValue.style.color = 'var(--purple)';
+    } else {
+      tokenValue.textContent = 'Not verified ⚠';
+      tokenValue.style.color = 'var(--amber)';
+    }
   } else {
     device.textContent = state.deviceModel || 'Android Device';
     device.style.color = 'var(--amber)';
@@ -793,7 +848,7 @@ $('btnConnectWallet').addEventListener('click', () => {  // NOT async!
     console.log('[MWA] Authorized. Accounts:', auth.accounts.length);
     return auth;
   })
-  .then((result) => {
+  .then(async (result) => {
     // Decode base64 address → bytes → base58
     const addrBytes = Uint8Array.from(atob(result.accounts[0].address), c => c.charCodeAt(0));
     const walletBase58 = base58encode(addrBytes);
@@ -806,8 +861,26 @@ $('btnConnectWallet').addEventListener('click', () => {  // NOT async!
     $('walletDisplay').classList.remove('hidden');
     $('walletAddr').textContent = walletBase58;
     statusEl.innerHTML = `<span style="color: var(--accent-light);">✓ Wallet connected: ${walletBase58.substring(0, 8)}...${walletBase58.slice(-4)}</span>`;
-    $('btnSimulateBank').classList.remove('hidden');
     console.log('[MWA] ✅ Wallet:', walletBase58);
+
+    // ---- Real Genesis Token verification (mainnet) ----
+    statusEl.innerHTML += '<br><span style="color: var(--text-dim);">Verifying Genesis Token on mainnet...</span>';
+    const sgtMint = await verifySGT(walletBase58);
+    if (sgtMint) {
+      state.genesisVerified = true;
+      state.genesisTokenMint = sgtMint;
+      const shortMint = sgtMint.substring(0, 6) + '...' + sgtMint.slice(-4);
+      statusEl.innerHTML = `<span style="color: var(--accent-light);">✓ Wallet connected</span>`
+        + `<br><span style="color: var(--purple);">✓ Genesis Token verified (${shortMint})</span>`;
+    } else {
+      state.genesisVerified = false;
+      state.genesisTokenMint = null;
+      statusEl.innerHTML = `<span style="color: var(--accent-light);">✓ Wallet connected</span>`
+        + `<br><span style="color: var(--amber);">⚠ Genesis Token not found</span>`;
+    }
+    saveState();
+
+    $('btnSimulateBank').classList.remove('hidden');
   })
   .catch((err) => {
     console.error('[MWA] Authorize failed:', err);
@@ -832,7 +905,7 @@ $('btnSimulateBank').addEventListener('click', () => {
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Bank verifying...';
   statusEl.textContent = isSeekerDevice()
-    ? 'Verifying Genesis Token + issuing credential...'
+    ? (state.genesisVerified ? 'Genesis Token verified ✓ — issuing credential...' : 'No Genesis Token found — issuing credential with reduced trust...')
     : 'Verifying device attestation...';
 
   setTimeout(() => {
@@ -1167,6 +1240,19 @@ $('btnSeal').addEventListener('click', async () => {
     $('resultChannel').textContent = isSeekerDevice()
       ? 'INDEPENDENT_DEVICE (Seed Vault)'
       : 'INDEPENDENT_DEVICE (WebAuthn)';
+    // Genesis Token status (real on-chain check)
+    const sgtEl = $('resultGenesis');
+    if (state.genesisVerified && state.genesisTokenMint) {
+      const short = state.genesisTokenMint.substring(0, 8) + '...' + state.genesisTokenMint.slice(-4);
+      sgtEl.textContent = `VERIFIED ✓ ${short}`;
+      sgtEl.style.color = 'var(--purple)';
+    } else if (isSeekerDevice()) {
+      sgtEl.textContent = 'NOT FOUND ⚠';
+      sgtEl.style.color = 'var(--amber)';
+    } else {
+      sgtEl.textContent = 'N/A (requires Seeker)';
+      sgtEl.style.color = 'var(--text-dim)';
+    }
     $('resultTime').textContent = new Date().toISOString();
 
     const titleEl = $('sealResultTitle');
