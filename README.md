@@ -8,6 +8,7 @@ With AlpenSign, the client cryptographically signs the payment — and the proof
 [![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/Docs-CC%20BY--NC--SA%204.0-blue)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 [![Solana](https://img.shields.io/badge/Solana-Devnet-9945ff)](https://explorer.solana.com/?cluster=devnet)
 [![Hackathon](https://img.shields.io/badge/Hackathon-Monolith%20Q1%202026-f59e0b)]()
+[![Zero Build](https://img.shields.io/badge/Zero_Dependencies-No_Build_Step-22c55e)]()
 
 ---
 
@@ -74,6 +75,7 @@ AlpenSign creates an independent evidence chain — from verified hardware throu
 
 2. Connect Seed Vault   →  MWA wallet authorization
                             AlpenSign receives the Seeker's Solana wallet address
+                            Genesis Token verified against mainnet (real on-chain check)
 
 3. Bank Confirmation    →  Bank issues SAS credential binding client to device
                             (simulated in hackathon demo)
@@ -154,7 +156,7 @@ alpensign/
     +-- DEMO_SCRIPT.md
 ```
 
-This is a **zero-build-step project**. There is no bundler, no transpiler, no `npm install`. The `site/` folder is deployed as-is to any static host.
+This is a **zero-build-step project**. No bundler, no transpiler, no `npm install`, no backend. This is intentional — auditability over convenience. A bank compliance officer can View Source and read every line. The `site/` folder is deployed as-is to any static host.
 
 ---
 
@@ -246,6 +248,7 @@ The live version runs at [alpensign.com](https://alpensign.com).
 
 - ✅ WebAuthn enrollment with platform authenticator (Seeker secure element)
 - ✅ MWA wallet connection via Seed Vault
+- ✅ Genesis Token verification — real mainnet check via [beeman's SGT indexer](https://github.com/beeman/solana-mobile-seeker-genesis-holders) (Layer 1)
 - ✅ Biometric-gated payment sealing
 - ✅ SHA-256 payment hash computation
 - ✅ On-chain posting via Solana Memo Program (devnet)
@@ -257,7 +260,6 @@ The live version runs at [alpensign.com](https://alpensign.com).
 ### Known Limitations
 
 - ⚠️ **Memo privacy** — Current implementation posts readable payment data in the memo field. Fix in progress: post only the SHA-256 hash.
-- ⚠️ **Genesis Token** — Layer 1 verification is simulated. Implementation for real on-chain check via Helius DAS API is documented in the roadmap.
 - ⚠️ **Bank credential** — Layer 2 (SAS credential issuance) requires bank cooperation and is simulated for the hackathon.
 - ⚠️ **Payment delivery** — Seal requests are triggered via a "Simulate" button. Production delivery via deep link, push notification, or QR code is planned.
 - ⚠️ **Devnet only** — All transactions go to Solana devnet. Mainnet migration planned after SAS integration and bank pilot.
@@ -269,7 +271,7 @@ The live version runs at [alpensign.com](https://alpensign.com).
 
 | Phase | Focus | Key Items |
 |---|---|---|
-| **P0 — Hackathon** | Ship the demo | Memo privacy fix, Genesis Token verification, dApp Store submission, demo video |
+| **P0 — Hackathon** | Ship the demo | ~~Genesis Token verification~~ ✓, Memo privacy fix, dApp Store submission, demo video |
 | **P1 — Complete story** | Both sides of the flow | Bank simulator, SAS migration, pitch deck, partner outreach |
 | **P2 — Real product** | Production foundation | AlpenSign SDK, Securosys HSM, native Android app, credential recovery, mainnet |
 | **P3 — Market expansion** | Adjacent use cases | Visa 3D-Secure (Netcetera ACS), hardware wallet support, EU/UK markets |

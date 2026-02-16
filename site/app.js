@@ -1,6 +1,10 @@
 // ============================================================
-// AlpenSign v0.5.0 — Transaction Sealing for Banks
-// Solana Seeker Hackathon Monolith · Q1 2026
+// AlpenSign v0.5.5 — Transaction Sealing for Banks
+// Solana Seeker Hackathon · Q1 2026
+//
+// Zero dependencies. Zero build step. Zero backend.
+// Intentional: auditability over convenience.
+// A bank compliance officer can View Source and read every line.
 //
 // KEY CHANGE: Uses Solana Mobile Wallet Adapter (MWA) to sign
 // and send transactions via the Seeker's real Seed Vault wallet.

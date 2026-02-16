@@ -25,7 +25,9 @@ The client reviews the payment, confirms with biometric authentication. The Seek
 AlpenSign is the only payment authorization layer that removes the bank, Apple, Google, *and itself* from the trust chain. There is no AlpenSign server component (besides a stateless, replaceable relay to the Solana RPC endpoint). Every other approach either relies on the bank's own infrastructure (self-serving), depends on Apple/Google attestation (centralized, revocable), or introduces a third-party signing service that becomes a new single point of trust.
 
 ## Tech Stack
+- **Zero dependencies, zero build step, zero backend.** Intentional: auditability over convenience. A bank compliance officer can View Source and read every line.
 - **Seeker Seed Vault**: Hardware-isolated key storage with biometric-gated signing. Keys never leave the secure element.
+- **Genesis Token verification**: Real mainnet check during enrollment via beeman's open-source SGT indexer (https://github.com/beeman/solana-mobile-seeker-genesis-holders). Production path: trustless on-chain Token-2022 verification.
 - **Solana Attestation Service (SAS)**: On-chain attestation protocol for verifiable credentials and transaction seals.
 - **Solana Mobile Stack / MWA**: Native wallet integration via Mobile Wallet Adapter, dApp runtime, and TEEPIN device verification.
 - **TEEPIN + SKR Guardians**: Decentralized device attestation. Guardians stake SKR tokens — fraudulent attestation means slashing.

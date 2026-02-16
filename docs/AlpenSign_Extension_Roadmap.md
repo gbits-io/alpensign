@@ -28,7 +28,7 @@ The full payment details remain in `localStorage` on the device and are shown in
 
 ### 0b. Genesis Token Verification (Make Layer 1 Real)
 
-**Status: Currently simulated — should be a real on-chain check.**
+**Status: Tier 1 implemented (v0.5.5) — real mainnet verification via beeman's SGT API. Tier 2 (trustless Token-2022) planned for production.**
 
 **Why this matters (the trust chain explained simply):**
 
@@ -54,43 +54,127 @@ A common question is: "Even if the device is genuine, how do you know the signat
 
 So: Genesis Token proves "genuine hardware" → Seed Vault proves "signature came from that hardware" → the two together prove "this cryptographic seal was produced inside a verified, tamper-resistant device." That's the Layer 1 evidence chain.
 
-**Implementation:**
+**Implementation — Three-Tier Strategy:**
 
-During enrollment (step 2, after MWA wallet connection), query the Solana Digital Asset Standard (DAS) API to check if the connected wallet holds a Genesis Token NFT from the official Seeker collection:
+AlpenSign needs to verify *one wallet* during enrollment. Three approaches are available, in increasing order of self-sovereignty:
+
+| Approach | Complexity | Dependency | Trust | When to use |
+|---|---|---|---|---|
+| **Beeman's SGT API** | 1 fetch call | Third-party API (open-source) | Trusts indexer | Hackathon |
+| **Official Token-2022** | ~60 lines, `@solana/spl-token` | Any mainnet RPC | Trustless, on-chain | Production |
+| **Self-hosted indexer** | Deploy beeman's repo | Own infrastructure | Full control | Scale |
+
+**Tier 1 — Hackathon (now): Beeman's SGT API**
+
+[beeman/solana-mobile-seeker-genesis-holders](https://github.com/beeman/solana-mobile-seeker-genesis-holders) is an open-source indexer that tracks all Seeker Genesis Token holders. It exposes a simple REST API: pass a wallet address, get back the mint address and metadata if the wallet holds an SGT, or 404 if not. No API key, no npm packages, no build step — fits AlpenSign's zero-dependency architecture.
 
 ```javascript
 // After wallet.authorize() returns the wallet address
-const response = await fetch('https://mainnet.helius-rpc.com/?api-key=YOUR_KEY', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    jsonrpc: '2.0',
-    id: 'genesis-check',
-    method: 'getAssetsByOwner',
-    params: {
-      ownerAddress: walletAddress,
-      page: 1,
-      limit: 100
-    }
-  })
-});
-
-const { result } = await response.json();
-const genesisToken = result.items.find(asset =>
-  asset.grouping?.some(g =>
-    g.group_key === 'collection' &&
-    g.group_value === GENESIS_TOKEN_COLLECTION_ADDRESS
-  )
-);
-
-if (genesisToken) {
-  // Layer 1 verified — store attestation details
-  state.genesisTokenMint = genesisToken.id;
-  state.genesisVerified = true;
-} else {
-  // No Genesis Token — device may not be a genuine Seeker
-  // Show warning but allow enrollment (graceful degradation)
+async function verifySGT(walletAddress) {
+  try {
+    const res = await fetch(
+      `https://sgt-api.beeman.dev/api/holders/${walletAddress}`
+    );
+    if (res.status === 404) return null; // Not a holder
+    const data = await res.json();
+    // data.mints[0].mint = SGT mint address
+    return data.mints?.[0]?.mint || null;
+  } catch (e) {
+    console.warn('[SGT] Verification failed:', e.message);
+    return null; // Fail open — allow enrollment with warning
+  }
 }
+
+// During enrollment step 2:
+const sgtMint = await verifySGT(walletAddress);
+if (sgtMint) {
+  state.genesisTokenMint = sgtMint;
+  state.genesisVerified = true;
+  // UI: "✅ Genesis Token verified"
+} else {
+  state.genesisVerified = false;
+  // UI: "⚠️ Genesis Token not found"
+}
+```
+
+**Why this is acceptable for a hackathon:** Beeman is a well-known Solana ecosystem builder, the API is open-source and self-hostable, and the SGT collection is immutable (once indexed, data is final). The irony of relying on a third-party API in a "no intermediary" solution is noted — but for a demo, pragmatism wins. Judges will see a real on-chain verification, not a simulation.
+
+**Tier 2 — Production: Official Token-2022 Verification**
+
+The [Solana Mobile documentation](https://docs.solanamobile.com/marketing/engaging-seeker-users) recommends verifying SGT ownership by inspecting the token's on-chain structure using Token Extensions (Token-2022). This is the trustless approach — it checks three cryptographic properties directly on-chain:
+
+**Key addresses (from Solana Mobile docs):**
+
+```
+Mint Authority:     GT2zuHVaZQYZSyQMgJPLzvkmyztfyXg2NJunqFp4p3A4
+Metadata Address:   GT22s89nU4iWFkNXj1Bw6uYhJJWDRPpShHt4Bk8f99Te
+Group Address:      GT22s89nU4iWFkNXj1Bw6uYhJJWDRPpShHt4Bk8f99Te
+```
+
+```javascript
+// Requires: @solana/web3.js, @solana/spl-token
+const { Connection, PublicKey } = require('@solana/web3.js');
+const {
+  unpackMint, getMetadataPointerState,
+  getTokenGroupMemberState, TOKEN_2022_PROGRAM_ID
+} = require('@solana/spl-token');
+
+const SGT_MINT_AUTHORITY = 'GT2zuHVaZQYZSyQMgJPLzvkmyztfyXg2NJunqFp4p3A4';
+const SGT_METADATA = 'GT22s89nU4iWFkNXj1Bw6uYhJJWDRPpShHt4Bk8f99Te';
+const SGT_GROUP = 'GT22s89nU4iWFkNXj1Bw6uYhJJWDRPpShHt4Bk8f99Te';
+
+async function verifySGT(walletAddress) {
+  // Any mainnet RPC — no Helius-specific API needed
+  const connection = new Connection('https://api.mainnet-beta.solana.com');
+  const owner = new PublicKey(walletAddress);
+
+  // Fetch Token-2022 accounts for this wallet
+  const { value: accounts } = await connection.getTokenAccountsByOwner(
+    owner, { programId: TOKEN_2022_PROGRAM_ID }
+  );
+
+  if (accounts.length === 0) return null;
+
+  // Extract mint pubkeys from token account data (first 32 bytes)
+  const mintKeys = accounts.map(a => new PublicKey(a.account.data.slice(0, 32)));
+  const mintInfos = await connection.getMultipleAccountsInfo(mintKeys);
+
+  for (let i = 0; i < mintInfos.length; i++) {
+    if (!mintInfos[i]) continue;
+    try {
+      const mint = unpackMint(mintKeys[i], mintInfos[i], TOKEN_2022_PROGRAM_ID);
+
+      const hasAuthority = mint.mintAuthority?.toBase58() === SGT_MINT_AUTHORITY;
+      const meta = getMetadataPointerState(mint);
+      const hasMetadata = meta?.authority?.toBase58() === SGT_MINT_AUTHORITY &&
+                          meta?.metadataAddress?.toBase58() === SGT_METADATA;
+      const group = getTokenGroupMemberState(mint);
+      const hasGroup = group?.group?.toBase58() === SGT_GROUP;
+
+      if (hasAuthority && hasMetadata && hasGroup) {
+        return mint.address.toBase58(); // Verified SGT mint
+      }
+    } catch (e) { continue; }
+  }
+  return null;
+}
+```
+
+This is more robust than the earlier DAS/Helius approach because it verifies the token's cryptographic structure (mint authority, metadata pointer, group membership) rather than just checking collection labels. It works with any mainnet RPC endpoint — no Helius API key required.
+
+**Tradeoff:** Requires `@solana/spl-token` as a dependency, which means either bundling it or loading via CDN. This breaks AlpenSign's current zero-dependency model, so it's better suited for the native Android app (Alexandr's track) than the PWA.
+
+**Tier 3 — Scale: Self-Hosted Indexer**
+
+For production at scale (many concurrent enrollments), self-host beeman's indexer on AlpenSign's own infrastructure. Fork the repo, deploy to a VPS with Turso DB, and point AlpenSign at the self-hosted endpoint. This gives Tier 1's simplicity with Tier 2's self-sovereignty.
+
+```bash
+git clone https://github.com/beeman/solana-mobile-seeker-genesis-holders
+# Deploy with Docker — see repo README
+docker run --rm -p 3000:3000 \
+  -e TURSO_DATABASE_URL=<your_url> \
+  -e TURSO_AUTH_TOKEN=<your_token> \
+  ghcr.io/beeman/solana-mobile-seeker-genesis-holders
 ```
 
 **What changes in the UI:**
@@ -99,7 +183,7 @@ if (genesisToken) {
 - The seal history and About page indicate whether Layer 1 was verified
 - The evidence chain strength is displayed: "3/3 layers verified" vs "2/3 layers (no Genesis Token)"
 
-**Note:** This requires a Helius API key (free tier: 100k requests/day) and a mainnet RPC call, even though AlpenSign otherwise runs on devnet. The Genesis Token lives on mainnet because it's a real asset minted during device provisioning. The official Genesis Token collection address needs to be confirmed from Solana Mobile documentation.
+**Note:** All three approaches require a mainnet data source, even though AlpenSign otherwise runs on devnet. The Genesis Token lives on mainnet because it's a real asset minted during device provisioning.
 
 ### 0c. Solana dApp Store Submission (PWA Path)
 
@@ -578,6 +662,47 @@ WebAuthn passkeys with the `"residentKey": "preferred"` option can sync across d
 **10d. Multi-Device Enrollment**
 
 Allow a user to enroll multiple devices (e.g., Seeker phone + Ledger hardware wallet). Each device gets its own SAS credential linked to the same client identity. If one device is lost, the others remain active. The bank's credential management system handles the linkage.
+
+**10e. Device Swap UX — "Hardware Handshake"**
+
+The strategies above address the technical mechanics, but a bank UX designer will ask a sharper question: *"What does the customer actually experience when they lose their phone and get a new one?"* If the answer involves branch visits, multi-day waiting periods, or complex re-verification, banks won't adopt AlpenSign — regardless of how strong the cryptographic model is.
+
+**Why this is simpler than it looks:**
+
+AlpenSign has no server component and no user accounts. There is no "AlpenSign account" to migrate. The client's seal history lives permanently on Solana and is accessible by transaction signature from any device. So "device recovery" is really just "credential re-issuance" — a process banks already do routinely when a customer replaces a lost phone with a banking app.
+
+**The device swap flow (target UX):**
+
+```
+Lost/broken Seeker                    New Seeker
+─────────────────                    ──────────
+                                     1. Unbox, set up Seeker OS
+                                        → Genesis Token auto-minted
+                                        → Seed Vault initialized
+
+Bank revokes old credential          2. Open AlpenSign on new device
+(automatic or client-triggered         → MWA wallet connect (new Seed Vault)
+via online banking)                     → Genesis Token verified ✅
+
+                                     3. Bank re-issues credential
+                                        → Via existing identity channel
+                                          (online banking, video-ident, branch)
+                                        → New SAS credential → new device wallet
+                                        → Enrolled ✅
+
+                                     4. (Optional) Restore seal history
+                                        → From encrypted cloud backup (10b)
+                                        → Or: bank provides TX signatures
+                                          for past seals (always on-chain)
+```
+
+**Key UX principle:** The new-device onboarding should be *identical* to first-time enrollment. No special "recovery mode," no separate flow, no support tickets. The client opens AlpenSign, connects the wallet, and the bank issues a credential — same three steps as day one. The only difference is that the bank's back-end knows this is a re-issuance (because the old credential was revoked) and may apply a faster verification path for known clients.
+
+**What banks are already used to:** Every Swiss bank already handles "client lost phone, needs new mobile banking app" — typically through online banking re-activation or a letter code. AlpenSign's device swap plugs into this existing process. The bank's identity verification happens through the bank's own channels; AlpenSign simply receives the resulting credential.
+
+**Seed phrase recovery consideration:** If the client backed up their Seed Vault seed phrase, they can restore the *same wallet address* on the new Seeker. This means the new credential can be bound to the same wallet, preserving a continuous on-chain identity. If they didn't back up the seed phrase, a new wallet is created — the bank credential simply points to the new address. Either path works; the seal history remains on-chain regardless.
+
+**Design goal for v1.0:** Device swap should take under 5 minutes for a client who has access to their online banking. No branch visit. No phone call. No waiting period beyond the bank's own re-verification policy.
 
 ---
 
