@@ -1,0 +1,25 @@
+{
+  "name": "AlpenSign",
+  "short_name": "AlpenSign",
+  "description": "Immutable Bank Payment and Credit Card Payment Request Sealing Solana Seeker.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#14F195",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "orientation": "portrait",
+  "scope": "/"
+}
