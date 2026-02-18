@@ -1425,6 +1425,7 @@ async function invokeSwiyu() {
   window.location.href = deepLink;
 }
 
+document.getElementById('btnConnectEID')?.addEventListener('click', invokeSwiyu);
 
 // ============================================================
 // INIT
