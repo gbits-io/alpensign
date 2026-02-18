@@ -404,6 +404,8 @@ async function getWalletBalance(walletBase58) {
   }
 }
 
+/*
+// OLD function from Claude Opus 4.6:
 // Compact memo payload (<300 bytes, well under 566 limit)
 function buildMemoPayload(payment, txHash, deviceSignature) {
   const payload = {
@@ -416,6 +418,24 @@ function buildMemoPayload(payment, txHash, deviceSignature) {
     loc: `${payment.town}, ${payment.country}`,
     amt: payment.amount,
     ts: Math.floor(Date.now() / 1000),
+  };
+  const json = JSON.stringify(payload);
+  console.log(`Memo payload: ${json.length} bytes`);
+  return json;
+}
+*/
+
+// From Gemini Pro (because Claude weekly limitations)
+// Compact memo payload — Privacy preserved (Hash only)
+function buildMemoPayload(payment, txHash, deviceSignature) {
+  const payload = {
+    v: 1,
+    t: 'ALPENSIGN_SEAL',
+    h: txHash,                         // SHA-256 hash of payment details (Anchor)
+    sig: deviceSignature.substring(0, 44),
+    d: state.deviceType,
+    // REMOVED: Plaintext fields (r, loc, amt) to ensure privacy
+    ts: Math.floor(Date.now() / 1000), // Approximate timestamp for indexing
   };
   const json = JSON.stringify(payload);
   console.log(`Memo payload: ${json.length} bytes`);
