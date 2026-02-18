@@ -1383,6 +1383,45 @@ window.copyWallet = copyWallet;
 $('btnAbout').addEventListener('click', () => navigateTo('about'));
 $('btnAboutBack').addEventListener('click', () => navigateTo('settings'));
 
+
+async function invokeSwiyu() {
+  // 1. Define what data you want from the Swiss E-ID
+  const presentationDefinition = {
+    id: "alpensign-identity-request",
+    input_descriptors: [{
+      id: "ch.admin.eid",
+      format: { "vc+sd-jwt": { alg: ["ES256"] } },
+      constraints: {
+        fields: [
+          { path: ["$.given_name"], purpose: "To personalize your AlpenSign profile" },
+          { path: ["$.family_name"], purpose: "To bind your legal name to the Transaction Seal" }
+        ]
+      }
+    }]
+  };
+
+  // 2. Build the full OpenID4VP Request
+  const baseUrl = window.location.origin + window.location.pathname;
+  const params = new URLSearchParams({
+    client_id: window.location.origin,
+    response_type: "vp_token",
+    response_mode: "fragment", // Returns data in the URL hash for client-only apps
+    redirect_uri: baseUrl,
+    nonce: Math.random().toString(36).substring(7),
+    presentation_definition: JSON.stringify(presentationDefinition)
+  });
+
+  // 3. Trigger the Android Intent
+  const deepLink = `openid4vp://authorize?${params.toString()}`;
+  
+  console.log("Invoking swiyu with:", deepLink);
+  window.location.href = deepLink;
+}
+
+// Attach to button
+document.getElementById('btnConnectEID')?.addEventListener('click', invokeSwiyu);
+
+
 // ============================================================
 // INIT
 // ============================================================
