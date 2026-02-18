@@ -1384,42 +1384,46 @@ $('btnAbout').addEventListener('click', () => navigateTo('about'));
 $('btnAboutBack').addEventListener('click', () => navigateTo('settings'));
 
 
+
 async function invokeSwiyu() {
-  // 1. Define what data you want from the Swiss E-ID
   const presentationDefinition = {
     id: "alpensign-identity-request",
     input_descriptors: [{
       id: "ch.admin.eid",
-      format: { "vc+sd-jwt": { alg: ["ES256"] } },
+      format: { 
+        "vc+sd-jwt": { 
+          "sd-jwt_alg_values": ["ES256"],
+          "kb-jwt_alg_values": ["ES256"] 
+        } 
+      },
       constraints: {
         fields: [
-          { path: ["$.given_name"], purpose: "To personalize your AlpenSign profile" },
-          { path: ["$.family_name"], purpose: "To bind your legal name to the Transaction Seal" }
+          { 
+            path: ["$.vct"], 
+            filter: { type: "string", const: "https://identity.admin.ch/credentials/v1/SwissEid" } 
+          },
+          { path: ["$.given_name"], purpose: "To verify your identity" },
+          { path: ["$.family_name"], purpose: "To bind your name to the seal" }
         ]
       }
     }]
   };
 
-  // 2. Build the full OpenID4VP Request
-  const baseUrl = window.location.origin + window.location.pathname;
   const params = new URLSearchParams({
-    client_id: window.location.origin,
+    client_id: window.location.origin, // Ideally a DID, but use this with the scheme below
+    client_id_scheme: "redirect_uri",   // CRITICAL: Tells swiyu how to treat the client_id
     response_type: "vp_token",
-    response_mode: "fragment", // Returns data in the URL hash for client-only apps
-    redirect_uri: baseUrl,
-    nonce: Math.random().toString(36).substring(7),
+    response_mode: "fragment", 
+    redirect_uri: window.location.origin + window.location.pathname,
+    nonce: crypto.randomUUID(),        // Use a real UUID for better wallet compatibility
     presentation_definition: JSON.stringify(presentationDefinition)
   });
 
-  // 3. Trigger the Android Intent
+  // The custom scheme used by swiyu for OID4VP presentation
   const deepLink = `openid4vp://authorize?${params.toString()}`;
   
-  console.log("Invoking swiyu with:", deepLink);
   window.location.href = deepLink;
 }
-
-// Attach to button
-document.getElementById('btnConnectEID')?.addEventListener('click', invokeSwiyu);
 
 
 // ============================================================
