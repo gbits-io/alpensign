@@ -1,1 +1,4 @@
 .DS_Store
+
+# Ignore the entire private documentation folder
+internal_docs/
