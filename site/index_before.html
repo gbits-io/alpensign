@@ -1256,80 +1256,6 @@
     opacity: 1;
     transform: translateY(0);
   }
-  /* ---- Tooltips (for TEEPIN, Seeker explainers) ---- */
-  .term-tip {
-    position: relative;
-    color: var(--accent);
-    cursor: help;
-    border-bottom: 1px dotted var(--accent);
-  }
-  .term-tip .tip-box {
-    display: none;
-    position: absolute;
-    bottom: calc(100% + 8px);
-    left: 50%;
-    transform: translateX(-50%);
-    width: min(360px, 85vw);
-    padding: 12px 14px;
-    background: var(--bg-primary);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.12);
-    font-size: 0.82rem;
-    line-height: 1.5;
-    color: var(--text-secondary);
-    z-index: 100;
-    text-align: left;
-    font-weight: 400;
-  }
-  .term-tip .tip-box::after {
-    content: '';
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    border: 6px solid transparent;
-    border-top-color: var(--border);
-  }
-  .term-tip:hover .tip-box,
-  .term-tip:focus .tip-box {
-    display: block;
-  }
-  @media (max-width: 600px) {
-    .term-tip .tip-box {
-      position: fixed;
-      bottom: auto;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 88vw;
-    }
-    .term-tip .tip-box::after { display: none; }
-  }
-
-  /* ---- WIP Disclaimer ---- */
-  .wip-banner {
-    background: rgba(245, 158, 11, 0.08);
-    border: 1px solid rgba(245, 158, 11, 0.25);
-    border-radius: 8px;
-    padding: 10px 16px;
-    margin: 24px auto 0;
-    max-width: 620px;
-    text-align: center;
-    font-size: 0.78rem;
-    color: var(--amber, #f59e0b);
-    line-height: 1.5;
-  }
-
-  /* ---- Seeker link style ---- */
-  a.seeker-link {
-    color: inherit;
-    text-decoration: none;
-    border-bottom: 1px dashed var(--accent);
-    transition: color 0.2s;
-  }
-  a.seeker-link:hover { color: var(--accent); }
-
 </style>
 </head>
 <body>
@@ -1349,9 +1275,9 @@
 
 <section class="hero">
   <div class="hero-badge">Solana Seeker Hackathon Monolith · Q1 2026</div>
-  <h1>With <em>AlpenSign</em> the <em><a href="https://solanamobile.com/seeker" target="_blank" rel="noopener" class="seeker-link">Seeker phone</a></em> can be used to <em>seal</em> bank payments on a public ledger.</h1>
+  <h1>With <em>AlpenSign</em> the <em>Seeker phone</em> can be used to <em>seal</em> bank payments on a public ledger.</h1>
   <p class="hero-sub" style="animation-delay: 0.25s;">
-    AlpenSign turns the <a href="https://solanamobile.com/seeker" target="_blank" rel="noopener" class="seeker-link">Solana Seeker phone</a> — a Web3-native smartphone with hardware-secured key storage — into a <strong>Mobile HSM</strong> — an independent, client-side device that seals bank payments and Visa/Mastercard 3D-Secure transactions with biometric confirmation and posts the proof to an immutable public ledger. No bank server. No Apple. No Google. No AlpenSign backend. The Seeker phone signs, <span class="term-tip" tabindex="0">TEEPIN<span class="tip-box">TEEPIN (Trusted Execution Environment Platform Infrastructure Network) is a foundational technology architecture developed for the Solana Seeker. It decentralizes mobile device verification by replacing central authorities (Apple/Google) with cryptographic verification backed by economic stakes. Independent Guardians stake SKR tokens to attest that each device's secure element is genuine and untampered.</span></span> attests, Solana records. The only intermediary is math. The proof lives on a public ledger, not only on the bank's server.
+    AlpenSign turns the Solana Seeker phone into a <strong>Mobile HSM</strong> — an independent, client-side device that seals bank payments and Visa/Mastercard 3D-Secure transactions with biometric confirmation and posts the proof to an immutable public ledger. No bank server. No Apple. No Google. No AlpenSign backend. The Seeker phone signs, TEEPIN attests, Solana records. The only intermediary is math. The proof lives on a public ledger, not only on the bank's server.
   </p>
   <p class="hero-sub" style="font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; letter-spacing: 0.03em; color: var(--text-dim);">
     <a href="#tech" style="color: var(--text-dim); text-decoration: none; border-bottom: 1px dashed var(--border); transition: color 0.3s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-dim)'">Built on</a>: Seed Vault · TEEPIN/SKR Guardians · Solana Attestation Service · Solana Mobile Stack / MWA · Soulbound NFTs · WebAuthn
@@ -1368,10 +1294,6 @@
     <a href="#" class="btn-secondary btn-placeholder" onclick="event.preventDefault()">📲 dApp Store — coming soon</a>
     <a href="#" class="btn-secondary btn-placeholder" onclick="event.preventDefault()">▶ Promo Video — coming soon</a>
     <a href="#join" class="btn-secondary">Join the Team</a>
-  </div>
-
-  <div class="wip-banner">
-    ⚠️ <strong>Work in progress</strong> — This project is under active development as part of the Solana Seeker Hackathon Monolith (Q1 2026). Features are being built and tested. See <a href="https://github.com/gbits-io/alpensign/" target="_blank" rel="noopener" style="color: inherit; text-decoration: underline;">GitHub</a> for current status.
   </div>
 
   <!--
