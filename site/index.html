@@ -244,6 +244,36 @@
 
   .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
 
+  .btn-app {
+    background: var(--seal-gradient);
+    color: #fff;
+    padding: 0.95rem 2.2rem;
+    border: none;
+    border-radius: 5px;
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    text-decoration: none;
+    transition: opacity 0.3s, transform 0.3s, box-shadow 0.3s;
+    box-shadow: 0 4px 18px rgba(26, 95, 58, 0.35), 0 0 0 0 rgba(34, 197, 94, 0);
+    position: relative;
+    animation: appBtnPulse 2.5s ease-in-out infinite;
+  }
+
+  .btn-app:hover {
+    opacity: 0.95;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 24px rgba(26, 95, 58, 0.4);
+  }
+
+  @keyframes appBtnPulse {
+    0%, 100% { box-shadow: 0 4px 18px rgba(26, 95, 58, 0.35), 0 0 0 0 rgba(34, 197, 94, 0.3); }
+    50% { box-shadow: 0 4px 18px rgba(26, 95, 58, 0.35), 0 0 0 8px rgba(34, 197, 94, 0); }
+  }
+
   .btn-secondary {
     background: transparent;
     color: var(--text-secondary);
@@ -1358,7 +1388,7 @@
     <a href="#tech" style="color: var(--text-dim); text-decoration: none; border-bottom: 1px dashed var(--border); transition: color 0.3s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-dim)'">Built on</a>: Seed Vault · TEEPIN/SKR Guardians · Solana Attestation Service · Solana Mobile Stack / MWA · Soulbound NFTs · WebAuthn
   </p>
   <div class="hero-actions">
-    <a href="./app.html/" target="_blank" rel="noopener" class="btn-primary">AlpenSign App</a>
+    <a href="./app.html/" target="_blank" rel="noopener" class="btn-app">▶ AlpenSign App</a>
     <a href="https://github.com/gbits-io/alpensign/" target="_blank" rel="noopener" class="btn-primary">View on GitHub</a>
     <button class="btn-secondary btn-ai" onclick="copyForLLM()">
       <span class="btn-ai-icon">⌘</span> Ask AI about AlpenSign
