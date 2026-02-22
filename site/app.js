@@ -259,6 +259,24 @@ function formatTime(ts) {
 
 function isSeekerDevice() { return state.deviceType === 'SOLANA_SEEKER'; }
 
+// ---- WebView Detection ----
+// Wallet apps (Phantom, Solflare, etc.) embed a WebView that doesn't support WebAuthn.
+// Detect this and tell the user to open in a real browser instead.
+function isWalletWebView() {
+  const ua = navigator.userAgent;
+  // Phantom, Solflare, and other wallet in-app browsers
+  if (/Phantom|Solflare/i.test(ua)) return true;
+  // Generic Android WebView indicators
+  // "wv" flag in Chrome UA string = WebView, also "WebView" in older builds
+  if (/; wv\)/.test(ua)) return true;
+  // In-app browser: has Android Chrome but NOT "Chrome/xxx" as standalone
+  // (WebView often reports "Version/x.x Chrome/xxx" pattern)
+  if (/Android/.test(ua) && /Version\/[\d.]+/.test(ua) && /Chrome\/[\d.]+/.test(ua)) return true;
+  // Instagram, Twitter, Facebook, Telegram in-app browsers
+  if (/FBAN|FBAV|Instagram|Twitter|Telegram/i.test(ua)) return true;
+  return false;
+}
+
 // ---- Genesis Token (SGT) Verification ----
 // Real on-chain check via beeman's open-source SGT indexer
 // https://github.com/beeman/solana-mobile-seeker-genesis-holders
@@ -321,6 +339,9 @@ async function detectDevice() {
 
   const isAndroid = /android/i.test(ua);
 
+  // Check for wallet WebView first (overrides normal device detection message)
+  const inWebView = isWalletWebView();
+
   if (seekerDetected) {
     state.deviceType = 'SOLANA_SEEKER';
     state.deviceModel = deviceModel || 'Solana Seeker';
@@ -328,6 +349,13 @@ async function detectDevice() {
     icon.textContent = '✅';
     msg.textContent = 'Solana Seeker detected — Seed Vault available';
     modelEl.textContent = state.deviceModel;
+  } else if (inWebView) {
+    state.deviceType = isAndroid ? 'GENERIC_ANDROID' : 'DESKTOP';
+    state.deviceModel = deviceModel;
+    banner.className = 'device-banner show warning';
+    icon.textContent = '🚫';
+    msg.innerHTML = '<b>Wallet browser detected</b> — please open in Chrome for full functionality';
+    modelEl.textContent = deviceModel;
   } else if (isAndroid) {
     state.deviceType = 'GENERIC_ANDROID';
     state.deviceModel = deviceModel;
@@ -354,10 +382,11 @@ async function detectDevice() {
   return state.deviceType;
 }
 
-// Auto-dismiss device banner after 5 seconds
+// Auto-dismiss device banner after 5 seconds — ONLY for Seeker (positive confirmation)
+// Non-Seeker banners persist so users understand the device limitation
 function autoDismissBanner() {
   const banner = $('deviceBanner');
-  if (banner && banner.classList.contains('show')) {
+  if (banner && banner.classList.contains('show') && isSeekerDevice()) {
     setTimeout(() => {
       banner.style.transition = 'opacity 0.5s ease';
       banner.style.opacity = '0';
@@ -797,6 +826,17 @@ $('btnGetStarted').addEventListener('click', () => {
 $('btnInitVault').addEventListener('click', async () => {
   const statusEl = $('enrollStatus1');
   const btn = $('btnInitVault');
+
+  // Block wallet WebViews — they don't support WebAuthn
+  if (isWalletWebView()) {
+    statusEl.innerHTML = '<span style="color: var(--red);">⚠ Wallet browser detected</span><br>'
+      + '<span style="color: var(--text-secondary); font-size: 0.82rem;">'
+      + 'This app requires features not available in wallet browsers.<br>'
+      + 'Please open <b>alpensign.com/app.html</b> directly in <b>Chrome</b>.</span>';
+    btn.disabled = true;
+    return;
+  }
+
   btn.disabled = true;
   statusEl.textContent = isSeekerDevice()
     ? 'Requesting Seeker attestation...'
@@ -832,7 +872,14 @@ $('btnInitVault').addEventListener('click', async () => {
     }, 800);
 
   } catch (err) {
-    statusEl.textContent = 'Error: ' + err.name;
+    if (err.name === 'NotSupportedError') {
+      statusEl.innerHTML = '<span style="color: var(--red);">⚠ WebAuthn not supported</span><br>'
+        + '<span style="color: var(--text-secondary); font-size: 0.82rem;">'
+        + 'This browser doesn\'t support the required security features.<br>'
+        + 'Please open <b>alpensign.com/app.html</b> directly in <b>Chrome</b>.</span>';
+    } else {
+      statusEl.textContent = 'Error: ' + err.name;
+    }
     btn.disabled = false;
     console.error('Enrollment error:', err);
   }
