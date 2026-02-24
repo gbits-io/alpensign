@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AlpenSign-NG — Swiss Attestation Authority for AI Outputs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink: #0a0c0f;
+  --paper: #f4f1eb;
+  --cream: #e8e3d9;
+  --slate: #6b7280;
+  --stone: #9ca3af;
+  --red: #c43d2e;
+  --red-dim: rgba(196, 61, 46, 0.12);
+  --ice: #b8d4e3;
+  --ice-dim: rgba(184, 212, 227, 0.1);
+  --gold: #b8965a;
+  --gold-dim: rgba(184, 150, 90, 0.08);
+  --serif: 'DM Serif Display', Georgia, serif;
+  --sans: 'Instrument Sans', -apple-system, sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--sans);
+  font-size: 17px;
+  line-height: 1.7;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection { background: var(--red); color: var(--paper); }
+
+/* ─── Noise overlay ─── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ─── Layout ─── */
+.container { max-width: 1200px; margin: 0 auto; padding: 0 clamp(24px, 5vw, 80px); }
+.container--narrow { max-width: 860px; }
+
+/* ─── Navigation ─── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0;
+  z-index: 100;
+  padding: 20px 0;
+  background: rgba(10, 12, 15, 0.85);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(244, 241, 235, 0.06);
+  transition: padding 0.3s;
+}
+nav.scrolled { padding: 12px 0; }
+.nav-inner {
+  display: flex; align-items: center; justify-content: space-between;
+  max-width: 1200px; margin: 0 auto;
+  padding: 0 clamp(24px, 5vw, 80px);
+}
+.nav-brand {
+  display: flex; align-items: center; gap: 12px;
+  text-decoration: none; color: var(--paper);
+}
+.nav-brand svg { width: 32px; height: 32px; }
+.nav-brand span {
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.nav-tag {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--stone);
+  padding: 4px 10px;
+  border: 1px solid rgba(244, 241, 235, 0.12);
+  border-radius: 2px;
+}
+.nav-links { display: flex; gap: 32px; align-items: center; }
+.nav-links a {
+  font-size: 13px; font-weight: 500;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--stone); text-decoration: none;
+  transition: color 0.2s;
+}
+.nav-links a:hover { color: var(--paper); }
+
+/* ─── Hero ─── */
+.hero {
+  min-height: 100vh;
+  display: flex; align-items: center;
+  padding-top: 100px;
+  position: relative;
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  top: 0; right: -20%; width: 80%; height: 100%;
+  background: radial-gradient(ellipse at 70% 30%, rgba(184, 212, 227, 0.04) 0%, transparent 60%);
+  pointer-events: none;
+}
+.hero-content { position: relative; z-index: 1; }
+
+.hero-label {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--red);
+  margin-bottom: 40px;
+  animation: fadeUp 0.8s ease both;
+}
+.hero-label::before {
+  content: '';
+  width: 24px; height: 1px;
+  background: var(--red);
+}
+
+.hero h1 {
+  font-family: var(--serif);
+  font-size: clamp(42px, 6.5vw, 88px);
+  font-weight: 400;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  max-width: 900px;
+  animation: fadeUp 0.8s ease 0.1s both;
+}
+.hero h1 em {
+  font-style: italic;
+  color: var(--ice);
+}
+
+.hero-sub {
+  font-size: clamp(17px, 2vw, 21px);
+  line-height: 1.6;
+  color: var(--stone);
+  max-width: 560px;
+  margin-top: 32px;
+  animation: fadeUp 0.8s ease 0.2s both;
+}
+
+.hero-ctas {
+  display: flex; gap: 16px; flex-wrap: wrap;
+  margin-top: 48px;
+  animation: fadeUp 0.8s ease 0.3s both;
+}
+
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 14px 28px;
+  font-family: var(--sans);
+  font-size: 14px; font-weight: 600;
+  letter-spacing: 0.03em;
+  text-decoration: none;
+  border-radius: 3px;
+  transition: all 0.25s;
+  cursor: pointer;
+  border: none;
+}
+.btn--primary {
+  background: var(--paper);
+  color: var(--ink);
+}
+.btn--primary:hover {
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(244,241,235,0.2), 0 8px 32px rgba(244,241,235,0.1);
+  transform: translateY(-1px);
+}
+.btn--ghost {
+  background: transparent;
+  color: var(--paper);
+  border: 1px solid rgba(244, 241, 235, 0.2);
+}
+.btn--ghost:hover {
+  border-color: rgba(244, 241, 235, 0.5);
+  background: rgba(244, 241, 235, 0.04);
+}
+
+.hero-proof {
+  margin-top: 80px;
+  padding-top: 40px;
+  border-top: 1px solid rgba(244, 241, 235, 0.08);
+  display: flex; gap: 48px; flex-wrap: wrap;
+  animation: fadeUp 0.8s ease 0.4s both;
+}
+.hero-proof-item {
+  display: flex; flex-direction: column; gap: 4px;
+}
+.hero-proof-item strong {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--paper);
+  letter-spacing: 0.02em;
+}
+.hero-proof-item span {
+  font-size: 12px;
+  color: var(--slate);
+  letter-spacing: 0.02em;
+}
+
+/* ─── Problem Section ─── */
+.section { padding: 120px 0; }
+.section--bordered { border-top: 1px solid rgba(244, 241, 235, 0.06); }
+
+.section-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--red);
+  margin-bottom: 24px;
+  display: flex; align-items: center; gap: 10px;
+}
+.section-label::before {
+  content: '';
+  width: 16px; height: 1px;
+  background: var(--red);
+}
+
+.section-title {
+  font-family: var(--serif);
+  font-size: clamp(32px, 4vw, 52px);
+  font-weight: 400;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  max-width: 700px;
+  margin-bottom: 48px;
+}
+.section-title em { font-style: italic; color: var(--ice); }
+
+/* ─── Problem Cards ─── */
+.problem-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2px;
+}
+.problem-card {
+  padding: 40px;
+  background: rgba(244, 241, 235, 0.02);
+  border: 1px solid rgba(244, 241, 235, 0.06);
+  transition: background 0.3s, border-color 0.3s;
+}
+.problem-card:hover {
+  background: rgba(244, 241, 235, 0.04);
+  border-color: rgba(244, 241, 235, 0.12);
+}
+.problem-card-year {
+  font-family: var(--mono);
+  font-size: 48px;
+  font-weight: 400;
+  color: rgba(244, 241, 235, 0.08);
+  line-height: 1;
+  margin-bottom: 24px;
+}
+.problem-card h3 {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 400;
+  margin-bottom: 12px;
+}
+.problem-card p {
+  font-size: 15px;
+  color: var(--stone);
+  line-height: 1.7;
+}
+
+/* ─── How It Works ─── */
+.flow {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+  counter-reset: flow-step;
+}
+.flow-step {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 0;
+  padding: 48px 0;
+  border-bottom: 1px solid rgba(244, 241, 235, 0.06);
+  counter-increment: flow-step;
+}
+.flow-step:last-child { border-bottom: none; }
+
+.flow-step-num {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--red);
+  padding-top: 4px;
+}
+.flow-step-num::before {
+  content: counter(flow-step, decimal-leading-zero);
+}
+
+.flow-step h3 {
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 400;
+  margin-bottom: 12px;
+}
+.flow-step p {
+  font-size: 15px;
+  color: var(--stone);
+  max-width: 580px;
+}
+
+/* ─── Use Cases ─── */
+.cases {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+}
+.case {
+  padding: 48px 36px;
+  background: rgba(244, 241, 235, 0.02);
+  border: 1px solid rgba(244, 241, 235, 0.06);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s;
+}
+.case:hover {
+  background: rgba(244, 241, 235, 0.04);
+  border-color: rgba(244, 241, 235, 0.12);
+}
+.case::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--red);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.4s ease;
+}
+.case:hover::before { transform: scaleX(1); }
+
+.case-icon {
+  width: 48px; height: 48px;
+  border-radius: 3px;
+  background: var(--red-dim);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 28px;
+}
+.case-icon svg { width: 22px; height: 22px; stroke: var(--red); fill: none; stroke-width: 1.5; }
+
+.case-vertical {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--slate);
+  margin-bottom: 12px;
+}
+.case h3 {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 400;
+  margin-bottom: 16px;
+  line-height: 1.3;
+}
+.case p {
+  font-size: 14px;
+  color: var(--stone);
+  line-height: 1.7;
+  margin-bottom: 24px;
+}
+.case-proof {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ice);
+  padding: 12px 16px;
+  background: var(--ice-dim);
+  border-left: 2px solid rgba(184, 212, 227, 0.3);
+  border-radius: 0 3px 3px 0;
+}
+
+/* ─── Trust Chain ─── */
+.chain {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  position: relative;
+}
+.chain::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: calc(33.33% + 20px);
+  right: calc(33.33% + 20px);
+  height: 1px;
+  background: linear-gradient(90deg, var(--red) 0%, var(--ice) 50%, var(--gold) 100%);
+  opacity: 0.3;
+}
+.chain-layer {
+  text-align: center;
+  padding: 48px 24px;
+  position: relative;
+}
+.chain-badge {
+  width: 72px; height: 72px;
+  border-radius: 50%;
+  margin: 0 auto 24px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
+}
+.chain-layer:nth-child(1) .chain-badge { background: var(--red-dim); color: var(--red); border: 1px solid rgba(196,61,46,0.25); }
+.chain-layer:nth-child(2) .chain-badge { background: var(--ice-dim); color: var(--ice); border: 1px solid rgba(184,212,227,0.25); }
+.chain-layer:nth-child(3) .chain-badge { background: var(--gold-dim); color: var(--gold); border: 1px solid rgba(184,150,90,0.25); }
+
+.chain-layer h3 {
+  font-family: var(--serif);
+  font-size: 20px;
+  font-weight: 400;
+  margin-bottom: 8px;
+}
+.chain-layer p {
+  font-size: 14px;
+  color: var(--stone);
+  max-width: 240px;
+  margin: 0 auto;
+}
+
+/* ─── Evidence Block ─── */
+.evidence {
+  background: rgba(244, 241, 235, 0.02);
+  border: 1px solid rgba(244, 241, 235, 0.08);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 64px;
+}
+.evidence-header {
+  padding: 20px 32px;
+  border-bottom: 1px solid rgba(244, 241, 235, 0.06);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.evidence-header-title {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--stone);
+}
+.evidence-header-status {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: #4ade80;
+  display: flex; align-items: center; gap: 6px;
+}
+.evidence-header-status::before {
+  content: '';
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #4ade80;
+  animation: pulse-dot 2s infinite;
+}
+.evidence-body {
+  padding: 32px;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 2.2;
+  color: var(--stone);
+}
+.evidence-body .hl-red { color: var(--red); }
+.evidence-body .hl-ice { color: var(--ice); }
+.evidence-body .hl-gold { color: var(--gold); }
+.evidence-body .hl-green { color: #4ade80; }
+.evidence-body .dim { color: rgba(244, 241, 235, 0.2); }
+
+/* ─── Why Switzerland ─── */
+.swiss-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2px;
+}
+.swiss-item {
+  padding: 40px;
+  background: rgba(244, 241, 235, 0.02);
+  border: 1px solid rgba(244, 241, 235, 0.06);
+}
+.swiss-item h3 {
+  font-family: var(--serif);
+  font-size: 20px;
+  font-weight: 400;
+  margin-bottom: 8px;
+}
+.swiss-item p {
+  font-size: 14px;
+  color: var(--stone);
+  line-height: 1.7;
+}
+.swiss-item-accent {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 16px;
+}
+
+/* ─── Comparison ─── */
+.comparison {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.comparison th {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--slate);
+  text-align: left;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(244, 241, 235, 0.1);
+  font-weight: 500;
+}
+.comparison th:last-child {
+  color: var(--red);
+}
+.comparison td {
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(244, 241, 235, 0.04);
+  color: var(--stone);
+}
+.comparison td:first-child {
+  color: var(--paper);
+  font-weight: 500;
+}
+.comparison td:last-child {
+  color: var(--paper);
+}
+.comparison tr:last-child td { border-bottom: none; }
+.check { color: #4ade80; }
+.cross { color: var(--slate); opacity: 0.4; }
+
+/* ─── CTA Section ─── */
+.cta-section {
+  padding: 160px 0;
+  text-align: center;
+  position: relative;
+}
+.cta-section::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 50%, rgba(196, 61, 46, 0.04) 0%, transparent 70%);
+  pointer-events: none;
+}
+.cta-section .section-title {
+  max-width: 600px;
+  margin: 0 auto 20px;
+}
+.cta-sub {
+  font-size: 17px;
+  color: var(--stone);
+  max-width: 480px;
+  margin: 0 auto 48px;
+}
+.cta-actions {
+  display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;
+}
+
+/* ─── Footer ─── */
+footer {
+  padding: 48px 0;
+  border-top: 1px solid rgba(244, 241, 235, 0.06);
+}
+.footer-inner {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 16px;
+}
+.footer-brand {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--slate);
+  letter-spacing: 0.04em;
+}
+.footer-legal {
+  font-size: 12px;
+  color: rgba(244, 241, 235, 0.2);
+}
+.footer-legal a {
+  color: rgba(244, 241, 235, 0.3);
+  text-decoration: none;
+}
+.footer-legal a:hover { color: var(--stone); }
+
+/* ─── Mountain SVG ─── */
+.mountain-divider {
+  width: 100%;
+  height: 80px;
+  margin: 0;
+  opacity: 0.04;
+}
+
+/* ─── Animations ─── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 900px) {
+  .cases { grid-template-columns: 1fr; }
+  .chain { grid-template-columns: 1fr; }
+  .chain::before { display: none; }
+  .swiss-grid { grid-template-columns: 1fr; }
+  .nav-links { display: none; }
+  .nav-tag { display: none; }
+  .flow-step { grid-template-columns: 48px 1fr; }
+  .comparison { font-size: 13px; }
+  .comparison th, .comparison td { padding: 12px 12px; }
+}
+@media (max-width: 600px) {
+  .hero-proof { gap: 32px; }
+  .problem-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- ─── Navigation ─── -->
+<nav id="nav">
+  <div class="nav-inner">
+    <a href="#" class="nav-brand">
+      <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M16 2L4 26h24L16 2z" stroke="#c43d2e" stroke-width="1.5" fill="none"/>
+        <path d="M16 10L10 26h12L16 10z" stroke="#f4f1eb" stroke-width="1" fill="none" opacity="0.3"/>
+        <circle cx="16" cy="18" r="2" fill="#c43d2e" opacity="0.8"/>
+      </svg>
+      <span>AlpenSign-NG</span>
+    </a>
+    <span class="nav-tag">Next Generation</span>
+    <div class="nav-links">
+      <a href="#problem">Problem</a>
+      <a href="#how">How It Works</a>
+      <a href="#cases">Use Cases</a>
+      <a href="#why-ch">Why Switzerland</a>
+      <a href="#contact" class="btn btn--ghost" style="padding: 8px 20px; font-size: 12px;">Request Access</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ─── Hero ─── -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-content">
+      <div class="hero-label">Swiss Attestation Authority</div>
+      <h1>Prove a human<br>approved <em>this.</em></h1>
+      <p class="hero-sub">
+        Independent, cryptographic proof that a qualified person reviewed
+        and approved a document, decision, or AI output — anchored on-chain,
+        structured under Swiss law.
+      </p>
+      <div class="hero-ctas">
+        <a href="#how" class="btn btn--primary">
+          See how it works
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5"/></svg>
+        </a>
+        <a href="#contact" class="btn btn--ghost">Request early access</a>
+      </div>
+      <div class="hero-proof">
+        <div class="hero-proof-item">
+          <strong>Hardware-anchored</strong>
+          <span>Secure element signing, biometric-gated</span>
+        </div>
+        <div class="hero-proof-item">
+          <strong>On-chain immutable</strong>
+          <span>Solana attestations, not self-serving logs</span>
+        </div>
+        <div class="hero-proof-item">
+          <strong>Swiss jurisdiction</strong>
+          <span>ZertES-aligned, GDPR-compatible</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Mountain Divider ─── -->
+<svg class="mountain-divider" viewBox="0 0 1200 80" preserveAspectRatio="none" fill="var(--paper)">
+  <path d="M0 80 L100 30 L200 55 L350 10 L500 45 L600 5 L750 35 L850 15 L950 40 L1050 8 L1150 50 L1200 25 L1200 80Z"/>
+</svg>
+
+<!-- ─── Problem ─── -->
+<section class="section section--bordered" id="problem">
+  <div class="container">
+    <div class="reveal">
+      <div class="section-label">The Problem</div>
+      <h2 class="section-title">AI can produce <em>anything.</em><br>Who proves a human was involved?</h2>
+    </div>
+    <div class="problem-grid reveal">
+      <div class="problem-card">
+        <div class="problem-card-year">2026</div>
+        <h3>AI drafts the contract</h3>
+        <p>Law firms use LLMs to generate complex agreements. When a clause is disputed, opposing counsel argues no qualified lawyer meaningfully reviewed the AI's output.</p>
+      </div>
+      <div class="problem-card">
+        <div class="problem-card-year">2027</div>
+        <h3>AI writes the diagnosis</h3>
+        <p>Hospital AI systems analyze imaging and generate diagnostic reports. Insurers question whether a licensed physician engaged with the AI's finding before it was issued.</p>
+      </div>
+      <div class="problem-card">
+        <div class="problem-card-year">2028</div>
+        <h3>AI files the report</h3>
+        <p>Asset managers publish AI-assisted research to institutional clients. Regulators demand proof that named analysts exercised genuine judgment — not rubber-stamped AI output.</p>
+      </div>
+    </div>
+    <div class="reveal" style="margin-top: 48px; max-width: 600px;">
+      <p style="color: var(--stone); font-size: 15px;">
+        Today's answer is <em style="color: var(--paper);">"trust us, a human reviewed it."</em>
+        That's the same self-serving evidence problem banks have had for decades.
+        AlpenSign-NG makes the proof independent, cryptographic, and immutable.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ─── How It Works ─── -->
+<section class="section section--bordered" id="how">
+  <div class="container">
+    <div class="reveal">
+      <div class="section-label">How It Works</div>
+      <h2 class="section-title">Three layers of <em>independent</em> proof</h2>
+    </div>
+
+    <div class="chain reveal" style="margin-bottom: 64px;">
+      <div class="chain-layer">
+        <div class="chain-badge">L1</div>
+        <h3>Device Verified</h3>
+        <p>Genuine hardware with tamper-resistant secure element, independently attested on-chain</p>
+      </div>
+      <div class="chain-layer">
+        <div class="chain-badge">L2</div>
+        <h3>Person Credentialed</h3>
+        <p>Professional credential issued by authority — bar admission, medical license, FINMA registration</p>
+      </div>
+      <div class="chain-layer">
+        <div class="chain-badge">L3</div>
+        <h3>Decision Sealed</h3>
+        <p>Biometric confirmation + document hash + session metadata, anchored on Solana as an immutable attestation</p>
+      </div>
+    </div>
+
+    <div class="flow reveal">
+      <div class="flow-step">
+        <div class="flow-step-num"></div>
+        <div>
+          <h3>Professional reviews content</h3>
+          <p>A lawyer, doctor, analyst, or authorized person reviews the AI-assisted document or decision on their verified device. AlpenSign-NG records session duration and interaction.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-step-num"></div>
+        <div>
+          <h3>Biometric seal from secure element</h3>
+          <p>The reviewer taps "Approve & Seal." Biometric authentication triggers the device's hardware-isolated signing environment. The private key never leaves the secure element.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-step-num"></div>
+        <div>
+          <h3>Attestation posted on-chain</h3>
+          <p>A Solana Attestation Service (SAS) credential is posted: document hash, professional credential reference, device attestation, timestamp. Only hashes on-chain — full data stays with the parties.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-step-num"></div>
+        <div>
+          <h3>Evidence bundle generated</h3>
+          <p>A self-contained, court-admissible evidence package — PDF + JSON + on-chain references — that any party can independently verify. No reliance on AlpenSign-NG systems.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Evidence Terminal -->
+    <div class="evidence reveal">
+      <div class="evidence-header">
+        <span class="evidence-header-title">Attestation Certificate — Example</span>
+        <span class="evidence-header-status">Verified on-chain</span>
+      </div>
+      <div class="evidence-body">
+        <span class="dim">┌──────────────────────────────────────────────────────┐</span><br>
+        <span class="dim">│</span> <span class="hl-red">DEVICE</span>&nbsp;&nbsp;&nbsp;&nbsp; Genesis Token verified &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="hl-green">✓ PASS</span> <span class="dim">│</span><br>
+        <span class="dim">│</span> <span class="hl-ice">CREDENTIAL</span> FMH Board-Certified Radiologist &nbsp;&nbsp;&nbsp;&nbsp;<span class="hl-green">✓ PASS</span> <span class="dim">│</span><br>
+        <span class="dim">│</span> <span class="hl-gold">SEAL</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; SHA-256 match · 12m 34s review &nbsp;&nbsp;&nbsp;<span class="hl-green">✓ PASS</span> <span class="dim">│</span><br>
+        <span class="dim">│</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="dim">│</span><br>
+        <span class="dim">│</span> <span style="color: var(--paper);">solana:tx</span> 4xK9...mR7q &nbsp;&nbsp;&nbsp;&nbsp;<span style="color: var(--slate);">2026-02-23T14:32:07Z</span> <span class="dim">│</span><br>
+        <span class="dim">└──────────────────────────────────────────────────────┘</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Use Cases ─── -->
+<section class="section section--bordered" id="cases">
+  <div class="container">
+    <div class="reveal">
+      <div class="section-label">Use Cases</div>
+      <h2 class="section-title">Every industry needs to prove <em>human judgment</em></h2>
+    </div>
+    <div class="cases reveal">
+      <div class="case">
+        <div class="case-icon">
+          <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
+        </div>
+        <div class="case-vertical">Legal</div>
+        <h3>AI-assisted contracts</h3>
+        <p>Prove a named partner reviewed and approved the final version of an AI-drafted agreement. Capture review duration, modifications made, and biometric seal.</p>
+        <div class="case-proof">Evidence: 47min review · 23 modifications · partner credential sealed</div>
+      </div>
+      <div class="case">
+        <div class="case-icon">
+          <svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        </div>
+        <div class="case-vertical">Medical</div>
+        <h3>AI-generated diagnoses</h3>
+        <p>Prove a licensed physician meaningfully engaged with AI diagnostic output before the report was issued. Cryptographic proof bound to medical credentials.</p>
+        <div class="case-proof">Evidence: FMH credential · imaging reviewed 12m · diagnosis modified</div>
+      </div>
+      <div class="case">
+        <div class="case-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>
+        </div>
+        <div class="case-vertical">Financial</div>
+        <h3>AI-drafted research</h3>
+        <p>Prove named analysts exercised genuine judgment over AI-assisted investment research. Seal the diff between AI draft and final published version.</p>
+        <div class="case-proof">Evidence: FINMA-registered analyst · substantive edits · recommendation sealed</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Why Switzerland ─── -->
+<section class="section section--bordered" id="why-ch">
+  <div class="container">
+    <div class="reveal">
+      <div class="section-label">Why Switzerland</div>
+      <h2 class="section-title">The jurisdiction <em>matters</em></h2>
+    </div>
+    <div class="swiss-grid reveal">
+      <div class="swiss-item">
+        <div class="swiss-item-accent">Neutrality</div>
+        <h3>Outside every major bloc</h3>
+        <p>Not subject to US subpoena, EU jurisdiction shopping, or PRC data access. For multinationals, a Swiss attestation authority is uniquely neutral ground.</p>
+      </div>
+      <div class="swiss-item">
+        <div class="swiss-item-accent">Legal Framework</div>
+        <h3>ZertES + nDSG</h3>
+        <p>Swiss electronic signatures law and the Federal Act on Data Protection provide a mature legal framework for cryptographic attestation with strong privacy guarantees.</p>
+      </div>
+      <div class="swiss-item">
+        <div class="swiss-item-accent">Trust Premium</div>
+        <h3>"Swiss-attested"</h3>
+        <p>The same institutional credibility that backs Swiss banking, Swiss watches, and Geneva arbitration — applied to proving human oversight in the AI age.</p>
+      </div>
+      <div class="swiss-item">
+        <div class="swiss-item-accent">Infrastructure</div>
+        <h3>Energy + Talent + Ecosystem</h3>
+        <p>Hydropower grid, ETH Zürich, EPFL, Crypto Valley Zug, and an established fintech ecosystem. Switzerland has every structural advantage for building AI trust infrastructure.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Comparison ─── -->
+<section class="section section--bordered">
+  <div class="container">
+    <div class="reveal">
+      <div class="section-label">Comparison</div>
+      <h2 class="section-title">Beyond signatures. Beyond identity. <em>Process attestation.</em></h2>
+    </div>
+    <div class="reveal" style="overflow-x: auto;">
+      <table class="comparison">
+        <thead>
+          <tr>
+            <th>Capability</th>
+            <th>e-Signature</th>
+            <th>Content Provenance (C2PA)</th>
+            <th>Proof-of-Human (World ID)</th>
+            <th>AlpenSign-NG</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Document was signed</td>
+            <td><span class="check">✓</span></td>
+            <td><span class="cross">—</span></td>
+            <td><span class="cross">—</span></td>
+            <td><span class="check">✓</span></td>
+          </tr>
+          <tr>
+            <td>Content was AI-generated</td>
+            <td><span class="cross">—</span></td>
+            <td><span class="check">✓</span></td>
+            <td><span class="cross">—</span></td>
+            <td><span class="cross">—</span></td>
+          </tr>
+          <tr>
+            <td>Signer is a real human</td>
+            <td><span class="cross">—</span></td>
+            <td><span class="cross">—</span></td>
+            <td><span class="check">✓</span></td>
+            <td><span class="check">✓</span></td>
+          </tr>
+          <tr>
+            <td>Human is professionally qualified</td>
+            <td><span class="cross">—</span></td>
+            <td><span class="cross">—</span></td>
+            <td><span class="cross">—</span></td>
+            <td><span class="check">✓</span></td>
+          </tr>
+          <tr>
+            <td>Human meaningfully reviewed content</td>
+            <td><span class="cross">—</span></td>
+            <td><span class="cross">—</span></td>
+            <td><span class="cross">—</span></td>
+            <td><span class="check">✓</span></td>
+          </tr>
+          <tr>
+            <td>Evidence is independent of issuer</td>
+            <td><span class="cross">—</span></td>
+            <td><span class="cross">—</span></td>
+            <td><span class="check">✓</span></td>
+            <td><span class="check">✓</span></td>
+          </tr>
+          <tr>
+            <td>Hardware-anchored signing</td>
+            <td><span class="cross">—</span></td>
+            <td><span class="cross">—</span></td>
+            <td><span class="cross">—</span></td>
+            <td><span class="check">✓</span></td>
+          </tr>
+          <tr>
+            <td>Neutral jurisdiction</td>
+            <td><span class="cross">—</span></td>
+            <td><span class="cross">—</span></td>
+            <td><span class="cross">—</span></td>
+            <td><span class="check">✓</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ─── CTA ─── -->
+<section class="cta-section section--bordered" id="contact">
+  <div class="container" style="position: relative; z-index: 1;">
+    <div class="section-label" style="justify-content: center;">Early Access</div>
+    <h2 class="section-title" style="text-align: center;">
+      The AI trust crisis<br>is <em>coming.</em> Be ready.
+    </h2>
+    <p class="cta-sub">
+      AlpenSign-NG is currently in private development. We're looking for
+      design partners in legal, medical, and financial services.
+    </p>
+    <div class="cta-actions">
+      <a href="mailto:roman@koivu.ch" class="btn btn--primary">
+        Contact Koivu GmbH
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5"/></svg>
+      </a>
+      <a href="#problem" class="btn btn--ghost">Read more</a>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Footer ─── -->
+<footer>
+  <div class="container">
+    <div class="footer-inner">
+      <div class="footer-brand">AlpenSign-NG · Koivu GmbH · Zürich, Switzerland</div>
+      <div class="footer-legal">
+        Built on <a href="https://solana.com" target="_blank">Solana</a> · Secured by hardware · Governed by Swiss law
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+// ─── Scroll reveal ───
+const reveals = document.querySelectorAll('.reveal');
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.classList.add('visible');
+      observer.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.12 });
+reveals.forEach(el => observer.observe(el));
+
+// ─── Nav shrink ───
+window.addEventListener('scroll', () => {
+  document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 60);
+});
+</script>
+</body>
+</html>
