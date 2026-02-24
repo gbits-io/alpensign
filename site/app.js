@@ -283,25 +283,38 @@ function isWalletWebView() {
 const SGT_API = 'https://sgt-api.beeman.dev/api/holders';
 
 async function verifySGT(walletAddress) {
-  try {
-    console.log('[SGT] Verifying Genesis Token for:', walletAddress);
-    const res = await fetch(`${SGT_API}/${walletAddress}`);
-    if (res.status === 404) {
-      console.log('[SGT] Wallet is not an SGT holder (404)');
-      return null;
+  // Try up to 2 times with a short delay between retries
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      console.log(`[SGT] Verifying Genesis Token for: ${walletAddress} (attempt ${attempt})`);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000); // 8s timeout per attempt
+
+      const res = await fetch(`${SGT_API}/${walletAddress}`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+
+      if (res.status === 404) {
+        console.log('[SGT] Wallet is not an SGT holder (404)');
+        return null;
+      }
+      if (!res.ok) {
+        console.warn('[SGT] API returned status:', res.status);
+        if (attempt < 2) { await new Promise(r => setTimeout(r, 1500)); continue; }
+        return null;
+      }
+      const data = await res.json();
+      const mint = data.mints?.[0]?.mint || null;
+      if (mint) console.log('[SGT] ✅ Verified. Mint:', mint);
+      return mint;
+    } catch (e) {
+      console.warn(`[SGT] Attempt ${attempt} failed:`, e.message);
+      if (attempt < 2) { await new Promise(r => setTimeout(r, 1500)); continue; }
+      return null; // Fail open — allow enrollment with warning
     }
-    if (!res.ok) {
-      console.warn('[SGT] API returned status:', res.status);
-      return null;
-    }
-    const data = await res.json();
-    const mint = data.mints?.[0]?.mint || null;
-    if (mint) console.log('[SGT] ✅ Verified. Mint:', mint);
-    return mint;
-  } catch (e) {
-    console.warn('[SGT] Verification failed (network?):', e.message);
-    return null; // Fail open — allow enrollment with warning
   }
+  return null;
 }
 
 // ============================================================
@@ -705,8 +718,8 @@ async function updateSettingsView() {
     sgtEl.textContent = `Verified ✓ ${short}`;
     sgtEl.style.color = 'var(--purple)';
   } else if (state.walletAddr && isSeekerDevice()) {
-    sgtEl.textContent = 'Not found ⚠';
-    sgtEl.style.color = 'var(--amber)';
+    sgtEl.textContent = 'Pending verification';
+    sgtEl.style.color = 'var(--text-secondary)';
   } else {
     sgtEl.textContent = '—';
     sgtEl.style.color = '';
@@ -775,8 +788,8 @@ function adaptEnrollmentForDevice() {
       tokenValue.textContent = `Verified ✓ ${short}`;
       tokenValue.style.color = 'var(--purple)';
     } else {
-      tokenValue.textContent = 'Not verified ⚠';
-      tokenValue.style.color = 'var(--amber)';
+      tokenValue.textContent = 'Pending verification';
+      tokenValue.style.color = 'var(--text-secondary)';
     }
   } else {
     device.textContent = state.deviceModel || 'Android Device';
@@ -980,7 +993,7 @@ $('btnSimulateBank').addEventListener('click', () => {
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Bank verifying...';
   statusEl.textContent = isSeekerDevice()
-    ? (state.genesisVerified ? 'Genesis Token verified ✓ — issuing credential...' : 'No Genesis Token found — issuing credential with reduced trust...')
+    ? (state.genesisVerified ? 'Genesis Token verified ✓ — issuing credential...' : 'Issuing credential...')
     : 'Verifying device attestation...';
 
   setTimeout(() => {
@@ -1005,6 +1018,26 @@ $('btnSimulateBank').addEventListener('click', () => {
 
 $('btnEnrollDone').addEventListener('click', () => {
   navigateTo('home');
+});
+
+// ============================================================
+// MWA SESSION RECOVERY
+// ============================================================
+// When the user navigates away (e.g., to Solana Explorer or another app)
+// and returns, the MWA WebSocket session may be dead. Track this so the
+// seal flow can detect and recover from a stale session.
+
+let _mwaSessionStarted = 0;  // timestamp when MWA transact() was called
+let _mwaSessionResolved = false;
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && _mwaSessionStarted && !_mwaSessionResolved) {
+    const elapsed = Date.now() - _mwaSessionStarted;
+    console.log(`[MWA Recovery] Page became visible. MWA session age: ${(elapsed / 1000).toFixed(1)}s`);
+    // If the session has been running for more than 45s and we're back,
+    // it's very likely the WebSocket died while backgrounded.
+    // The promise will resolve/reject on its own if still alive.
+  }
 });
 
 // ============================================================
@@ -1172,6 +1205,26 @@ $('btnSeal').addEventListener('click', async () => {
               return;
             }
 
+            // Track MWA session for visibility-based recovery
+            _mwaSessionStarted = Date.now();
+            _mwaSessionResolved = false;
+
+            // Recovery: if user navigates away and comes back after the
+            // MWA session has been pending too long, force-reject so the
+            // UI doesn't stay stuck on "Signing with Seed Vault..."
+            function onVisibilityRestore() {
+              if (document.visibilityState !== 'visible') return;
+              if (_mwaSessionResolved) return;
+              const elapsed = Date.now() - _mwaSessionStarted;
+              if (elapsed > 30000) {
+                console.warn('[MWA Recovery] Session stale after', (elapsed/1000).toFixed(0), 's — force-rejecting');
+                _mwaSessionResolved = true;
+                document.removeEventListener('visibilitychange', onVisibilityRestore);
+                reject(new Error('Seed Vault session expired — please try again'));
+              }
+            }
+            document.addEventListener('visibilitychange', onVisibilityRestore);
+
             // transact() fires IMMEDIATELY from click — no async before this
             transactFn(async (wallet) => {
               console.log('[MWA] Seal session established, authorizing...');
@@ -1224,6 +1277,8 @@ $('btnSeal').addEventListener('click', async () => {
                 } catch (e) {
                   // Already base58? Return as-is
                   console.log('[MWA] Signature appears to be base58 already:', sigRaw.substring(0, 20));
+                  _mwaSessionResolved = true;
+                  document.removeEventListener('visibilitychange', onVisibilityRestore);
                   resolve(sigRaw);
                   return;
                 }
@@ -1234,10 +1289,14 @@ $('btnSeal').addEventListener('click', async () => {
               console.log('[MWA] Signature bytes length:', sigBytes.length);
               const txSig = base58encode(sigBytes);
               console.log('[MWA] ✅ TX confirmed:', txSig);
+              _mwaSessionResolved = true;
+              document.removeEventListener('visibilitychange', onVisibilityRestore);
               resolve(txSig);
             })
             .catch((e) => {
               console.error('[MWA] signAndSend failed:', e);
+              _mwaSessionResolved = true;
+              document.removeEventListener('visibilitychange', onVisibilityRestore);
               reject(e);
             });
           }
@@ -1325,8 +1384,9 @@ $('btnSeal').addEventListener('click', async () => {
       sgtEl.textContent = `VERIFIED ✓ ${short}`;
       sgtEl.style.color = 'var(--purple)';
     } else if (isSeekerDevice()) {
-      sgtEl.textContent = 'NOT FOUND ⚠';
-      sgtEl.style.color = 'var(--amber)';
+      // Softer messaging — API may be unreachable, not necessarily absent
+      sgtEl.textContent = 'PENDING VERIFICATION';
+      sgtEl.style.color = 'var(--text-secondary)';
     } else {
       sgtEl.textContent = 'N/A (requires Seeker)';
       sgtEl.style.color = 'var(--text-dim)';

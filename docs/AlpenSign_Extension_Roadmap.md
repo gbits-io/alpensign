@@ -277,15 +277,46 @@ The landing page screenshots show an outdated UI. New screenshots needed showing
 
 ### 1a. Bank Simulator for Demo Purposes
 
-The current AlpenSign prototype shows the **client side** — the Seeker phone receiving and sealing payment requests. To tell a complete story, we need to build the **bank side** that originates those requests.
+**Status: IMPLEMENTED (v0.6.0)** — `bank-simulator.html` is a standalone web app with two tabs (Pairing + SIC Payment) that communicates with AlpenSign via `BroadcastChannel('alpensign-bank-bridge')`.
 
-**What to build:**
+**What was built:**
 
-- A lightweight web application that acts as a mock internet banking portal. The banker (or demo operator) enters payment details — recipient, amount, currency, reference — and the system generates a payment request pushed to the AlpenSign app on the Seeker.
-- The bank simulator should display a real-time dashboard showing the lifecycle of each request: *Pending → Delivered → Sealed → Confirmed*. When the Seeker signs and posts the seal to Solana, the simulator polls the chain (or receives a webhook) and updates the status with the on-chain transaction signature.
-- Include a **dispute simulation mode**: after a payment is sealed, the operator can click "Client Disputes This Payment." The dashboard then fetches the Genesis Token, the bank credential (SAS attestation), and the transaction seal, presenting the full independent evidence chain that would defeat the dispute.
+- **Pairing tab:** .skr resolution, challenge string generation, signature verification field (paste from AlpenSign or simulate), SAS attestation issuance with full schema, revocation button
+- **Payment tab:** Realistic SIC CHF high-value payment form (ISO 20022 pacs.008 aligned), prefilled with CHF 2.45M industrial payment, real-time seal status updates, Solana Explorer links
+- **BroadcastChannel bridge:** Zero-server communication between bank simulator and AlpenSign across browser tabs. Three message types: `payment-request`, `attestation-confirmed`, `seal-complete`
+- **Visual design:** Dark navy + gold (traditional private banking aesthetic) — instantly distinguishable from AlpenSign's tech/Solana look
 
-**Why it matters:** Judges at hackathons — and bank innovation teams evaluating the concept — need to see both ends of the flow. Showing only the phone app leaves the most compelling part of the story (the evidentiary value) to the viewer's imagination.
+**Demo flow on a single Seeker:**
+1. Open bank-simulator.html in tab 1, app.html in tab 2
+2. Pairing (manual): bank generates challenge → client enters in AlpenSign → signs with biometric → copies signature → pastes in bank portal → bank verifies & issues attestation → AlpenSign auto-completes enrollment
+3. Payment (automatic): bank creates SIC payment → AlpenSign notification appears → client taps, reviews, seals → bank tab auto-updates to "sealed"
+
+**Still to build:**
+- **Dispute simulation mode** — After a payment is sealed, the operator clicks "Client Disputes This Payment." The dashboard fetches the Genesis Token, bank credential, and transaction seal, presenting the full independent evidence chain that defeats the dispute.
+- **Multi-payment queue** — Currently handles one payment at a time. Production would need a payment queue with statuses.
+
+### 1a-bis. Replace BroadcastChannel with Real Delivery Channels
+
+**Status: PLANNED — required before any bank pilot or production deployment.**
+
+BroadcastChannel is a same-browser demo convenience. It works perfectly for hackathon demos (two tabs on the same Seeker) but has fundamental limitations:
+
+- Only works within the same browser on the same device
+- No cross-device support (bank advisor on desktop, client on Seeker)
+- No background delivery (app must be open)
+- No offline queuing
+
+**Production replacement options:**
+
+| Channel | Direction | Use Case |
+|---------|-----------|----------|
+| **Push notifications** (Firebase/APNs) | Bank → AlpenSign | Payment request delivery when app is backgrounded |
+| **Deep links** (`alpensign://seal?...`) | Bank → AlpenSign | Direct navigation to seal view from SMS/email |
+| **QR code scan** | Bank → AlpenSign | Cross-device pairing (client scans QR on bank portal) |
+| **Solana on-chain subscription** | AlpenSign → Bank | Bank subscribes to memo TXs from enrolled wallet addresses |
+| **Webhook callback** | AlpenSign → Bank | Direct HTTP callback to bank's API after seal completion |
+
+**Migration approach:** Keep BroadcastChannel as a fallback for demos and development. Add a transport abstraction layer in app.js that can route through BroadcastChannel, push notifications, or deep links depending on context. The bank simulator should also support WebSocket for cross-device demos during presentations.
 
 ### 1b. AlpenSign SDK for Real Bank Integration
 
@@ -920,11 +951,13 @@ The Swiss partner ecosystem provides a credible launchpad, but the model scales:
 
 ## Summary
 
-AlpenSign's core thesis — using the Seeker as a Mobile HSM to create independent, on-chain evidence of payment authorization — is sound and has been validated end-to-end on real hardware. The v0.5.5 prototype successfully completes the full flow: WebAuthn enrollment, Seed Vault wallet connection via MWA, biometric-gated payment sealing, and Solana devnet posting with verifiable on-chain proof.
+AlpenSign's core thesis — using the Seeker as a Mobile HSM to create independent, on-chain evidence of payment authorization — is sound and has been validated end-to-end on real hardware. The v0.6.0 prototype successfully completes the full flow: WebAuthn enrollment, Seed Vault wallet connection via MWA, biometric-gated payment sealing, and Solana devnet posting with verifiable on-chain proof.
 
-The immediate priority is fixing the memo privacy issue and submitting to the dApp Store before the hackathon deadline. The app and supporting materials (landing page, pitch deck, demo video) can be adapted for StableHack, SwissHacks, and Colosseum with targeted modifications per hackathon theme.
+**Session 9 (v0.6.0) completed the demo story:** The bank simulator provides the missing bank-side perspective, communicating with AlpenSign via BroadcastChannel. Challenge signing enables real proof-of-device-possession during pairing. The Demo Mode toggle keeps the UI clean for presentations while preserving standalone testing capability.
 
-The medium-term roadmap follows a natural progression: first, complete the demo story (bank simulator + airline app), then deepen the technical foundation (SAS migration + privacy + MWA hardening), then build the real product (SDK + HSM + native app), and finally expand to adjacent markets (3D Secure + hardware wallets).
+The immediate priority is submitting to the dApp Store and recording the demo video (now with bank simulator). The app and supporting materials (landing page, pitch deck, demo video) can be adapted for StableHack, SwissHacks, and Colosseum with targeted modifications per hackathon theme.
+
+The medium-term roadmap follows a natural progression: first, replace BroadcastChannel with real delivery channels (push/deep links/QR), then deepen the technical foundation (SAS migration + privacy + MWA hardening), then build the real product (SDK + HSM + native app), and finally expand to adjacent markets (3D Secure + hardware wallets).
 
 Go-to-market is partnership-first: Securosys (HSM), Netcetera (3DS), Ergon/Airlock (API gateway), and Viseca (card issuer + consumer app) form a Swiss ecosystem that can take AlpenSign from hackathon demo to bank pilot without a massive direct sales effort.
 
@@ -933,4 +966,4 @@ Each extension reinforces the central message: **banks should not be the sole ke
 ---
 
 *Document prepared for the AlpenSign project — [github.com/gbits-io/alpensign](https://github.com/gbits-io/alpensign)*
-*February 2026 · v2 (extended with implementation learnings from MWA integration)*
+*February 2026 · v3 (extended with bank simulator, BroadcastChannel integration, and session 9 learnings)*
