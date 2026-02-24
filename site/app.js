@@ -318,12 +318,14 @@ async function detectDevice() {
   let deviceModel = 'Unknown Device';
   let seekerDetected = false;
 
+  // ---- Strategy 1: Client Hints API (Chrome on Seeker) ----
   if (navigator.userAgentData) {
     try {
+      // Check brands for SolanaMobile (works in Chrome, may be stripped in Brave)
       const isSolanaBrand = navigator.userAgentData.brands.some(b =>
         /solanamobile/i.test(b.brand)
       );
-      const hints = await navigator.userAgentData.getHighEntropyValues(['model']);
+      const hints = await navigator.userAgentData.getHighEntropyValues(['model', 'platform', 'platformVersion']);
       deviceModel = hints.model || 'Unknown';
       seekerDetected = isSolanaBrand || /seeker|solana/i.test(deviceModel);
     } catch (e) {
@@ -331,13 +333,48 @@ async function detectDevice() {
     }
   }
 
+  // ---- Strategy 2: User-Agent string (all browsers) ----
   if (!seekerDetected) {
     seekerDetected = /seeker|solanamobile|solana\s*mobile|saga/i.test(ua);
     const m = ua.match(/;\s*([^;)]+?)(?:(?:\s+Build\/)|(?:\s*Webkit)|(?:\s*[\);]))/i);
     if (m && deviceModel === 'Unknown Device') deviceModel = m[1].trim();
   }
 
+  // ---- Strategy 3: Brave browser on Android — probe for Seed Vault ----
+  // Brave strips device model from UA (always "K") and may strip Client Hints brands.
+  // If we're on Android but haven't detected Seeker yet, check for MWA availability.
+  // The presence of a working MWA transact() + Seed Vault wallet is definitive proof
+  // of Seeker hardware, regardless of what the UA says.
   const isAndroid = /android/i.test(ua);
+  const isBrave = !!(navigator.brave && typeof navigator.brave.isBrave === 'function');
+
+  if (!seekerDetected && isAndroid) {
+    // Quick check: is MWA already preloaded? (from the <script type="module"> in HTML)
+    if (window.__mwaTransact) {
+      // MWA is available — on a real non-Seeker Android, the solana-wallet:// Intent
+      // would fail or no wallet would respond. If MWA loaded successfully and we're
+      // on Android, this is very likely a Seeker. We'll confirm definitively when
+      // the user connects their wallet.
+      seekerDetected = true;
+      deviceModel = isBrave ? 'Solana Seeker (Brave)' : (deviceModel === 'K' || deviceModel === 'Unknown' ? 'Solana Seeker' : deviceModel);
+      console.log('[Device] Seeker detected via MWA availability' + (isBrave ? ' (Brave browser)' : ''));
+    } else if (isBrave) {
+      // Brave on Android but MWA not loaded yet — wait briefly for the preload
+      console.log('[Device] Brave on Android detected, waiting for MWA preload...');
+      const mwaAvailable = await new Promise((resolve) => {
+        // Check if it loads within 3 seconds
+        if (window.__mwaTransact) { resolve(true); return; }
+        const t = setTimeout(() => resolve(false), 3000);
+        window.addEventListener('mwa-ready', () => { clearTimeout(t); resolve(true); }, { once: true });
+        window.addEventListener('mwa-failed', () => { clearTimeout(t); resolve(false); }, { once: true });
+      });
+      if (mwaAvailable) {
+        seekerDetected = true;
+        deviceModel = 'Solana Seeker (Brave)';
+        console.log('[Device] Seeker confirmed via MWA in Brave');
+      }
+    }
+  }
 
   // Check for wallet WebView first (overrides normal device detection message)
   const inWebView = isWalletWebView();
@@ -347,7 +384,9 @@ async function detectDevice() {
     state.deviceModel = deviceModel || 'Solana Seeker';
     banner.className = 'device-banner show seeker';
     icon.textContent = '✅';
-    msg.textContent = 'Solana Seeker detected — Seed Vault available';
+    msg.textContent = isBrave
+      ? 'Solana Seeker detected (Brave) — Seed Vault available'
+      : 'Solana Seeker detected — Seed Vault available';
     modelEl.textContent = state.deviceModel;
   } else if (inWebView) {
     state.deviceType = isAndroid ? 'GENERIC_ANDROID' : 'DESKTOP';
