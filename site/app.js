@@ -803,6 +803,7 @@ function adaptEnrollStep2() {
     $('enroll2Desc').textContent = 'Your device\'s WebAuthn key is ready. On-chain sealing requires a Solana Seeker with Seed Vault.';
     $('btnConnectWallet').classList.add('hidden');
     $('btnSimulateBank').classList.remove('hidden');
+    $('bankPairingSection').classList.remove('hidden');
     $('enrollStatus2').textContent = 'On-chain posting not available without Seeker.';
   }
 }
@@ -952,6 +953,7 @@ $('btnConnectWallet').addEventListener('click', () => {  // NOT async!
     saveState();
 
     $('btnSimulateBank').classList.remove('hidden');
+    $('bankPairingSection').classList.remove('hidden');
   })
   .catch((err) => {
     console.error('[MWA] Authorize failed:', err);
@@ -1300,6 +1302,9 @@ $('btnSeal').addEventListener('click', async () => {
     state._lastTxReal = onChain;
     saveState();
 
+    // Notify bank simulator via BroadcastChannel
+    notifyBankSealComplete(seal);
+
     // Show result
     await new Promise(r => setTimeout(r, 600));
     btn.classList.add('hidden');
@@ -1475,6 +1480,155 @@ async function invokeSwiyu() {
 document.getElementById('btnConnectEID')?.addEventListener('click', invokeSwiyu);
 
 // ============================================================
+// BROADCASTCHANNEL — Bank Simulator Bridge
+// ============================================================
+
+const bankChannel = new BroadcastChannel('alpensign-bank-bridge');
+
+bankChannel.onmessage = (event) => {
+  const msg = event.data;
+  console.log('[BankBridge] Received:', msg.type);
+
+  if (msg.type === 'payment-request') {
+    // Bank sent a payment for sealing
+    const p = msg.payment;
+    state.currentRequest = {
+      recipient: p.creditor,
+      town: p.address ? p.address.split(',').pop().trim() : 'CH',
+      country: 'CH',
+      amount: `CHF ${p.amount}`,
+      iban: p.iban,
+      ref: p.reference,
+      _bankRequestId: msg.requestId, // Track for response
+    };
+    // Show notification
+    $('notifBody').textContent = `CHF ${p.amount} to ${p.creditor}`;
+    $('notification').classList.add('show');
+    console.log('[BankBridge] Payment request shown as notification');
+  }
+
+  if (msg.type === 'attestation-confirmed') {
+    // Bank confirmed the attestation — complete enrollment
+    console.log('[BankBridge] Attestation confirmed by bank');
+    if (state.credId && state.walletAddr && !state.enrolled) {
+      state.enrolled = true;
+      saveState();
+      adaptEnrollmentForDevice();
+      $('enroll-2').classList.remove('active');
+      $('enroll-3').classList.add('active');
+      updateHeaderBadge();
+      const statusEl = $('enrollStatus2');
+      if (statusEl) {
+        statusEl.innerHTML = '<span style="color: var(--accent-light);">✓ Bank attestation confirmed via portal</span>';
+      }
+    }
+  }
+};
+
+// Send seal completion back to bank
+function notifyBankSealComplete(seal) {
+  bankChannel.postMessage({
+    type: 'seal-complete',
+    requestId: state.currentRequest?._bankRequestId || null,
+    seal: {
+      hash: seal.hash,
+      signature: seal.signature,
+      solanaTx: seal.solanaTx,
+      solanaTxReal: seal.solanaTxReal,
+      deviceType: seal.deviceType,
+      timestamp: seal.timestamp,
+      recipient: seal.recipient,
+      amount: seal.amount,
+    },
+  });
+  console.log('[BankBridge] Seal completion sent to bank');
+}
+
+// ============================================================
+// CHALLENGE SIGNING (Bank Pairing)
+// ============================================================
+
+let challengeSignatureRaw = null;
+
+$('btnSignChallenge').addEventListener('click', async () => {
+  const input = $('challengeInput');
+  const statusEl = $('challengeStatus');
+  const btn = $('btnSignChallenge');
+  const challenge = input.value.trim();
+
+  if (!challenge) {
+    statusEl.innerHTML = '<span style="color: var(--red);">Enter the challenge from the bank portal</span>';
+    return;
+  }
+
+  if (!state.credId) {
+    statusEl.innerHTML = '<span style="color: var(--red);">Complete Seed Vault initialization first</span>';
+    return;
+  }
+
+  btn.disabled = true;
+  statusEl.textContent = isSeekerDevice()
+    ? 'Requesting Seed Vault biometric...'
+    : 'Requesting platform authentication...';
+
+  try {
+    // Hash the challenge string
+    const challengeBuffer = await crypto.subtle.digest(
+      'SHA-256',
+      new TextEncoder().encode(challenge)
+    );
+
+    // WebAuthn assertion — biometric-gated signature over the challenge
+    const assertion = await navigator.credentials.get({
+      publicKey: {
+        challenge: new Uint8Array(challengeBuffer),
+        rpId: RP_ID,
+        allowCredentials: [{
+          id: bufferify(state.credId),
+          type: 'public-key'
+        }],
+        userVerification: 'required'
+      }
+    });
+
+    const sigBase64 = base64ify(assertion.response.signature);
+    challengeSignatureRaw = sigBase64;
+
+    // Display signature
+    $('challengeSigDisplay').textContent = sigBase64.substring(0, 44) + '...' + sigBase64.slice(-8);
+    $('challengeResult').classList.remove('hidden');
+
+    statusEl.innerHTML = '<span style="color: var(--accent-light);">✓ Challenge signed with Seed Vault biometric</span>';
+
+    // Show the bank confirm button
+    $('btnSimulateBank').classList.remove('hidden');
+
+  } catch (err) {
+    console.error('Challenge signing error:', err);
+    if (err.name === 'NotAllowedError') {
+      statusEl.innerHTML = '<span style="color: var(--red);">Biometric cancelled or failed</span>';
+    } else {
+      statusEl.innerHTML = `<span style="color: var(--red);">Error: ${err.name}</span>`;
+    }
+  }
+
+  btn.disabled = false;
+});
+
+function copyChallengeSignature() {
+  if (challengeSignatureRaw && navigator.clipboard) {
+    navigator.clipboard.writeText(challengeSignatureRaw).then(() => {
+      const hint = $('challengeCopyHint');
+      if (hint) {
+        hint.textContent = 'Copied ✓';
+        setTimeout(() => hint.textContent = 'Tap to copy — share with bank advisor', 2000);
+      }
+    });
+  }
+}
+window.copyChallengeSignature = copyChallengeSignature;
+
+// ============================================================
 // INIT
 // ============================================================
 
@@ -1505,6 +1659,7 @@ async function init() {
       $('walletDisplay').classList.remove('hidden');
       $('walletAddr').textContent = state.walletAddr;
       $('btnSimulateBank').classList.remove('hidden');
+      $('bankPairingSection').classList.remove('hidden');
     }
   } else if (state.welcomeSeen) {
     $('view-enroll').classList.add('active');
