@@ -1067,7 +1067,7 @@ preloadMWA();
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4h-4z"/></svg>
         Connect Seed Vault
       </button>
-      <button class="btn btn-amber mt-2 hidden" id="btnSimulateBank">Simulate: Bank Confirms Enrollment</button>
+      <button class="btn btn-amber mt-2 hidden demo-only" id="btnSimulateBank">Simulate: Bank Confirms Enrollment</button>
 
       <!-- Bank Pairing: Challenge Signing -->
       <div id="bankPairingSection" class="hidden mt-2">
@@ -1159,7 +1159,7 @@ preloadMWA();
     </div>
 
     <!-- Simulate Request -->
-    <div class="card" style="border: 1px dashed var(--amber); background: rgba(245, 158, 11, 0.04);">
+    <div class="card demo-only" id="demoControlsCard" style="border: 1px dashed var(--amber); background: rgba(245, 158, 11, 0.04);">
       <div class="card-header">
         <span class="card-title" style="color: var(--amber);">Demo Controls</span>
       </div>
@@ -1386,6 +1386,21 @@ preloadMWA();
       <button class="btn btn-ghost mt-1 hidden" id="btnReconnectWallet" style="font-size: 0.75rem;">
         🔗 Reconnect Seed Vault Wallet
       </button>
+    </div>
+
+    <!-- Demo Mode Toggle -->
+    <div class="card">
+      <div class="info-row" style="border-bottom: none;">
+        <div>
+          <span class="info-label" style="font-size: 0.8rem; color: var(--text);">Demo Mode</span>
+          <div class="font-xs text-dim" style="margin-top: 0.15rem;">Standalone testing without bank portal</div>
+        </div>
+        <label style="position:relative; display:inline-block; width:44px; height:24px; flex-shrink:0;">
+          <input type="checkbox" id="toggleDemoMode" style="opacity:0; width:0; height:0;">
+          <span id="toggleTrack" style="position:absolute; cursor:pointer; inset:0; background:var(--bg-elevated); border:1px solid var(--border); border-radius:24px; transition:0.3s;"></span>
+          <span id="toggleThumb" style="position:absolute; content:''; height:18px; width:18px; left:3px; bottom:3px; background:var(--text-dim); border-radius:50%; transition:0.3s;"></span>
+        </label>
+      </div>
     </div>
 
     <button class="btn btn-danger mt-2" id="btnReset">
