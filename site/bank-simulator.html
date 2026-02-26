@@ -618,6 +618,108 @@ html, body {
   transform: translateX(-50%) translateY(0);
 }
 
+/* ═══ DEVICE MODE SELECTOR ═══ */
+.mode-selector {
+  display: flex; gap: 4px;
+  background: rgba(0,0,0,0.2);
+  border-radius: 10px;
+  padding: 3px;
+  margin-bottom: 20px;
+}
+
+.mode-btn {
+  flex: 1;
+  padding: 10px 8px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--steel);
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  font-family: var(--font);
+  line-height: 1.3;
+}
+
+.mode-btn.active {
+  background: var(--navy-mid);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+
+.mode-btn.active.seeker-mode { color: var(--green); }
+.mode-btn.active.generic-mode { color: var(--orange); }
+
+.mode-btn:not(.active):hover { color: var(--silver); }
+
+.mode-label { display: block; font-weight: 600; font-size: 13px; }
+.mode-sub { display: block; font-size: 10px; opacity: 0.7; margin-top: 2px; }
+
+/* ═══ TRUST COMPARISON ═══ */
+.trust-comparison {
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.trust-row {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 12px;
+  background: rgba(0,0,0,0.1);
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+
+.trust-row:last-child { border-bottom: none; }
+
+.trust-icon {
+  flex-shrink: 0;
+  font-size: 14px;
+  width: 20px;
+  text-align: center;
+  margin-top: 1px;
+}
+
+.trust-body { flex: 1; }
+
+.trust-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--white);
+  line-height: 1.3;
+}
+
+.trust-desc {
+  font-size: 10.5px;
+  color: var(--steel);
+  line-height: 1.4;
+  margin-top: 2px;
+}
+
+.trust-row.missing { background: rgba(251, 146, 60, 0.06); }
+.trust-row.missing .trust-label { color: var(--orange); }
+.trust-row.present .trust-label { color: var(--green); }
+
+/* ═══ GENERIC ATTESTATION ═══ */
+.generic-attestation-card {
+  background: rgba(0,0,0,0.2);
+  border: 1px solid rgba(251, 146, 60, 0.15);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  margin-top: 12px;
+}
+
+.generic-attestation-badge {
+  padding: 3px 8px;
+  background: var(--orange-dim);
+  color: var(--orange);
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
 /* ═══ CONNECTION LINE (decorative) ═══ */
 .connection-line {
   display: flex; align-items: center; gap: 8px;
@@ -721,6 +823,202 @@ html, body {
           <div class="field-static mono">CH93 0076 2011 6238 5295 7</div>
         </div>
       </div>
+
+      <!-- Device Mode Selector -->
+      <div class="mode-selector">
+        <button class="mode-btn seeker-mode active" data-mode="seeker" onclick="switchPairingMode('seeker')">
+          <span class="mode-label">📱 Solana Seeker</span>
+          <span class="mode-sub">Full trust chain</span>
+        </button>
+        <button class="mode-btn generic-mode" data-mode="generic" onclick="switchPairingMode('generic')">
+          <span class="mode-label">📱 Generic Android</span>
+          <span class="mode-sub">Reduced trust (demo)</span>
+        </button>
+      </div>
+
+      <!-- ═══ GENERIC DEVICE PAIRING (Pixel, Samsung, etc.) ═══ -->
+      <div id="generic-pairing" style="display:none">
+
+        <!-- Trust Comparison -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-icon red">⚠</div>
+            <div>
+              <div class="card-title">Reduced Trust Mode</div>
+              <div class="card-desc">Generic Android device — five trust layers unavailable</div>
+            </div>
+          </div>
+
+          <div class="trust-comparison">
+            <div class="trust-row missing">
+              <div class="trust-icon">✗</div>
+              <div class="trust-body">
+                <div class="trust-label">No Genesis Token (SGT)</div>
+                <div class="trust-desc">Cannot prove the device is genuine, unrooted hardware. Without the soulbound NFT verified by SKR-staked Guardians via TEEPIN, the phone could be a rooted device, emulator, or compromised.</div>
+              </div>
+            </div>
+            <div class="trust-row missing">
+              <div class="trust-icon">✗</div>
+              <div class="trust-body">
+                <div class="trust-label">No SAS Credential (Bank–Client binding)</div>
+                <div class="trust-desc">No on-chain attestation linking this client to a verified device. The bank cannot issue a revocable Solana Attestation Service credential without a device identity anchor.</div>
+              </div>
+            </div>
+            <div class="trust-row missing">
+              <div class="trust-icon">✗</div>
+              <div class="trust-body">
+                <div class="trust-label">No .skr Name (Hardware Identity)</div>
+                <div class="trust-desc">No Seeker ID means no implicit proof of TEE-backed key generation, no Guardian attestation chain, and no human-readable device identifier resolvable on Solana.</div>
+              </div>
+            </div>
+            <div class="trust-row missing">
+              <div class="trust-icon">✗</div>
+              <div class="trust-body">
+                <div class="trust-label">No Immutable Audit Trail</div>
+                <div class="trust-desc">Without Seed Vault, seals cannot be posted to Solana. Payment authorizations exist only as local cryptographic proofs — no independent, immutable on-chain record for dispute resolution.</div>
+              </div>
+            </div>
+            <div class="trust-row missing">
+              <div class="trust-icon">✗</div>
+              <div class="trust-body">
+                <div class="trust-label">No Seed Vault Signing</div>
+                <div class="trust-desc">Signatures use Android's standard WebAuthn keystore, not the Seeker's dedicated secure element. Keys may be extractable on rooted devices. No hardware-level non-exportability guarantee.</div>
+              </div>
+            </div>
+            <div class="trust-row present">
+              <div class="trust-icon">✓</div>
+              <div class="trust-body">
+                <div class="trust-label">Biometric-Gated Local Signature</div>
+                <div class="trust-desc">WebAuthn ECDSA signature with biometric confirmation is still available. The client can still review and cryptographically sign payment details — but proof stays on-device only.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Generic Device Input -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-icon blue">📱</div>
+            <div>
+              <div class="card-title">Link Generic Device</div>
+              <div class="card-desc">Enter a device identifier for this client's Android phone</div>
+            </div>
+          </div>
+
+          <div class="field">
+            <span class="field-label">Device Name</span>
+            <input type="text" class="field-input" id="generic-device-input" 
+                   placeholder="e.g. Pixel 8a, Galaxy S24" 
+                   autocapitalize="words" autocorrect="off">
+            <div class="field-hint">The client's Android phone model</div>
+            <div class="field-error" id="generic-device-error" style="display:none"></div>
+          </div>
+
+          <button class="btn btn-gold" id="btn-generic-pair" onclick="pairGenericDevice()">
+            Pair Device (Reduced Trust)
+          </button>
+        </div>
+
+        <!-- Generic Attestation Result -->
+        <div class="card" id="generic-attestation-card" style="display:none">
+          <div class="card-header">
+            <div class="card-icon gold">⚠</div>
+            <div>
+              <div class="card-title">Local-Only Pairing Issued</div>
+              <div class="card-desc">Client linked without on-chain attestation</div>
+            </div>
+          </div>
+
+          <!-- Pairing Timeline (generic) -->
+          <div class="timeline">
+            <div class="timeline-step done">
+              <div class="timeline-num">✓</div>
+              <div class="timeline-body">
+                <div class="timeline-title">Device Identified</div>
+                <div class="timeline-desc" id="generic-attest-device-desc">—</div>
+              </div>
+            </div>
+            <div class="timeline-step" style="opacity: 0.35;">
+              <div class="timeline-num">—</div>
+              <div class="timeline-body">
+                <div class="timeline-title" style="color: var(--steel); text-decoration: line-through;">Genesis Token Verified</div>
+                <div class="timeline-desc">Skipped — no soulbound NFT on generic device.</div>
+              </div>
+            </div>
+            <div class="timeline-step" style="opacity: 0.35;">
+              <div class="timeline-num">—</div>
+              <div class="timeline-body">
+                <div class="timeline-title" style="color: var(--steel); text-decoration: line-through;">SAS Attestation Published</div>
+                <div class="timeline-desc">Skipped — no device identity anchor for on-chain credential.</div>
+              </div>
+            </div>
+            <div class="timeline-step done">
+              <div class="timeline-num">✓</div>
+              <div class="timeline-body">
+                <div class="timeline-title">BroadcastChannel Bridge Active</div>
+                <div class="timeline-desc">AlpenSign notified — payment requests will be delivered via browser channel.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="generic-attestation-card">
+            <div class="attestation-header">
+              <span class="generic-attestation-badge">Local Pairing</span>
+              <span class="attestation-schema">No on-chain record</span>
+            </div>
+            <div class="kv-table">
+              <div class="kv-row">
+                <div class="kv-key">Mode</div>
+                <div class="kv-val" style="color: var(--orange);">Reduced Trust (Generic Device)</div>
+              </div>
+              <div class="kv-row">
+                <div class="kv-key">Device</div>
+                <div class="kv-val" id="generic-attest-device">—</div>
+              </div>
+              <div class="kv-row">
+                <div class="kv-key">Client</div>
+                <div class="kv-val">Roman Koivu · KB-2026-004871</div>
+              </div>
+              <div class="kv-row">
+                <div class="kv-key">Timestamp</div>
+                <div class="kv-val mono" id="generic-attest-timestamp" style="font-size:10px">—</div>
+              </div>
+              <div class="kv-row">
+                <div class="kv-key">Genesis Token</div>
+                <div class="kv-val" style="color: var(--orange);">N/A — no Seeker hardware</div>
+              </div>
+              <div class="kv-row">
+                <div class="kv-key">SAS Attestation</div>
+                <div class="kv-val" style="color: var(--orange);">N/A — no on-chain credential</div>
+              </div>
+              <div class="kv-row">
+                <div class="kv-key">Solana TX</div>
+                <div class="kv-val" style="color: var(--orange);">N/A — local only</div>
+              </div>
+              <div class="kv-row">
+                <div class="kv-key">Status</div>
+                <div class="kv-val" style="color: var(--orange); font-weight: 700;">ACTIVE (LOCAL ONLY)</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top: 16px">
+            <button class="btn btn-outline" onclick="switchTab('payment')">
+              Proceed to SIC Payment →
+            </button>
+          </div>
+
+          <div style="margin-top: 10px">
+            <button class="btn btn-danger" onclick="revokeGenericPairing()">
+              Remove Pairing
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ═══ SEEKER DEVICE PAIRING ═══ -->
+      <div id="seeker-pairing">
 
       <!-- Seeker ID Input -->
       <div class="card">
@@ -929,6 +1227,8 @@ html, body {
         </div>
       </div>
 
+      </div> <!-- end #seeker-pairing -->
+
     </div>
 
     <!-- ═══ PAYMENT VIEW ═══ -->
@@ -940,7 +1240,7 @@ html, body {
           <div class="card-header">
             <div class="card-icon red">⚠</div>
             <div>
-              <div class="card-title">Seeker Not Paired</div>
+              <div class="card-title">Device Not Paired</div>
               <div class="card-desc">Complete device pairing first to enable AlpenSign-sealed payments.</div>
             </div>
           </div>
@@ -1043,7 +1343,7 @@ html, body {
         </button>
 
         <div class="field-hint" style="text-align: center; margin-top: 10px">
-          Payment will be held pending until the client seals it via AlpenSign on their Seeker.
+          Payment will be held pending until the client seals it via AlpenSign on their device.
         </div>
 
       </div>
@@ -1082,13 +1382,13 @@ html, body {
         <div class="seal-banner waiting" id="seal-waiting-banner">
           <div class="spinner green"></div>
           <div class="seal-banner-text">
-            Waiting for client to seal this payment via AlpenSign on their Seeker…
+            Waiting for client to seal this payment via AlpenSign…
           </div>
         </div>
 
         <div class="seal-banner sealed" id="seal-done-banner" style="display:none">
           <div class="seal-banner-icon">✓</div>
-          <div class="seal-banner-text">
+          <div class="seal-banner-text" id="seal-done-text">
             Payment sealed by client. Immutable proof on Solana. SIC settlement initiated.
           </div>
         </div>
@@ -1191,6 +1491,8 @@ html, body {
 // ═══ STATE ═══
 const state = {
   paired: false,
+  pairingMode: null,    // 'seeker' or 'generic'
+  genericDevice: null,  // device name for generic pairing
   seekerId: null,
   solanaAddress: null,
   challenge: null,
@@ -1312,7 +1614,15 @@ async function handleSealFromAlpenSign(seal) {
 
   document.getElementById('seal-proof-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-  toast('✓ AlpenSign seal received from Seeker');
+  const isGeneric = state.pairingMode === 'generic';
+  toast(isGeneric
+    ? '⚠ AlpenSign seal received (local proof only)'
+    : '✓ AlpenSign seal received from Seeker'
+  );
+  if (isGeneric) {
+    document.getElementById('seal-done-text').textContent =
+      'Payment sealed by client. Local cryptographic proof only — no on-chain record.';
+  }
 }
 
 // Send attestation confirmation to AlpenSign
@@ -1354,6 +1664,86 @@ async function verifyChallenge() {
   btn.innerHTML = 'Verify Signature & Issue Attestation';
   btn.disabled = false;
 }
+// ═══ PAIRING MODE SWITCH ═══
+function switchPairingMode(mode) {
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`.mode-btn[data-mode="${mode}"]`).classList.add('active');
+
+  document.getElementById('seeker-pairing').style.display = mode === 'seeker' ? 'block' : 'none';
+  document.getElementById('generic-pairing').style.display = mode === 'generic' ? 'block' : 'none';
+}
+
+// ═══ GENERIC DEVICE PAIRING ═══
+async function pairGenericDevice() {
+  const input = document.getElementById('generic-device-input');
+  const errEl = document.getElementById('generic-device-error');
+  const val = input.value.trim();
+
+  if (!val || val.length < 2) {
+    input.classList.add('error');
+    errEl.textContent = 'Please enter a device name (e.g. Pixel 8a)';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  input.classList.remove('error');
+  errEl.style.display = 'none';
+
+  const btn = document.getElementById('btn-generic-pair');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> Registering device…';
+
+  await sleep(1200);
+
+  const now = new Date();
+  state.paired = true;
+  state.pairingMode = 'generic';
+  state.genericDevice = val;
+
+  // Fill attestation card
+  document.getElementById('generic-attest-device-desc').textContent =
+    `${val} → WebAuthn platform key (local only)`;
+  document.getElementById('generic-attest-device').textContent = val;
+  document.getElementById('generic-attest-timestamp').textContent =
+    now.toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+
+  document.getElementById('generic-attestation-card').style.display = 'block';
+
+  // Notify AlpenSign via BroadcastChannel
+  alpensignChannel.postMessage({
+    type: 'attestation-confirmed',
+    contract: 'KB-2026-004871',
+    bank: 'Big Bank 123',
+    device: val,
+    mode: 'generic',
+  });
+  console.log('[BankBridge] Generic attestation sent to AlpenSign');
+
+  document.getElementById('generic-attestation-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  btn.disabled = false;
+  btn.innerHTML = 'Pair Device (Reduced Trust)';
+
+  toast('⚠ Device paired (local only — reduced trust)');
+}
+
+// ═══ REVOKE GENERIC PAIRING ═══
+function revokeGenericPairing() {
+  if (!confirm('Remove the local pairing for this client? This will disable AlpenSign sealing.')) return;
+
+  state.paired = false;
+  state.pairingMode = null;
+  state.genericDevice = null;
+  state.paymentSent = false;
+  state.paymentSealed = false;
+
+  document.getElementById('generic-attestation-card').style.display = 'none';
+  document.getElementById('generic-device-input').value = '';
+
+  toast('Pairing removed');
+}
+
+// ═══ RESOLVE SEEKER ID ═══
 async function resolveSeekerId() {
   const input = document.getElementById('skr-input');
   const errEl = document.getElementById('skr-error');
@@ -1468,6 +1858,7 @@ async function completeAttestation() {
   // Generate attestation TX
   state.attestationTx = generateTxSig();
   state.paired = true;
+  state.pairingMode = 'seeker';
 
   const now = new Date();
   const expiry = new Date(now);
@@ -1498,6 +1889,7 @@ async function revokeAttestation() {
   if (!confirm('Revoke the SAS attestation for this client? This will deactivate AlpenSign sealing.')) return;
 
   state.paired = false;
+  state.pairingMode = null;
   state.seekerId = null;
   state.solanaAddress = null;
   state.attestationTx = null;
@@ -1572,7 +1964,9 @@ async function sendPayment() {
 async function simulateSeal() {
   const btn = document.getElementById('btn-sim-seal');
   btn.disabled = true;
-  btn.innerHTML = '<div class="spinner green"></div> Client sealing with Seeker…';
+  btn.innerHTML = state.pairingMode === 'generic'
+    ? '<div class="spinner green"></div> Client sealing with WebAuthn…'
+    : '<div class="spinner green"></div> Client sealing with Seeker…';
 
   await sleep(2500);
 
@@ -1609,7 +2003,10 @@ async function simulateSeal() {
 
   document.getElementById('seal-proof-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-  toast('✓ Payment sealed & SIC settlement initiated');
+  toast(state.pairingMode === 'generic'
+    ? '⚠ Payment sealed (local proof only — no SIC settlement)'
+    : '✓ Payment sealed & SIC settlement initiated'
+  );
 }
 
 // ═══ RESET PAYMENT ═══
