@@ -13,8 +13,8 @@
   --navy: #0a1628;
   --navy-light: #132040;
   --navy-mid: #1a2d54;
-  --slate: #334766;
-  --steel: #8899b0;
+  --slate: #8895aa;
+  --steel: #b3c0d1;
   --silver: #c4cfde;
   --cream: #e8ecf2;
   --white: #f5f7fa;
@@ -1093,10 +1093,11 @@ html, body {
           </div>
         </div>
 
-        <div class="challenge-box">
+        <div class="challenge-box" onclick="copyChallenge()" style="cursor:pointer">
           <div class="challenge-label">Challenge String</div>
           <div class="challenge-string" id="challenge-text">—</div>
-          <div class="challenge-hint">The client opens AlpenSign on their Seeker → enters this string → signs with Seed Vault biometric confirmation</div>
+          <div class="challenge-hint" id="challenge-copy-hint">📋 Tap to copy</div>
+          <div class="challenge-hint" style="margin-top:6px">The client opens AlpenSign on their Seeker → enters this string → signs with Seed Vault biometric confirmation</div>
         </div>
 
         <div class="field-hint" style="margin: 12px 0 0; text-align:center">
@@ -2029,6 +2030,29 @@ function toast(msg) {
   el.textContent = msg;
   el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ═══ COPY CHALLENGE ═══
+async function copyChallenge() {
+  const text = document.getElementById('challenge-text').textContent;
+  if (!text || text === '—') return;
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    // Fallback for older browsers / restricted contexts
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  }
+  const hint = document.getElementById('challenge-copy-hint');
+  hint.textContent = '✓ Copied!';
+  hint.style.color = 'var(--green)';
+  setTimeout(() => { hint.textContent = '📋 Tap to copy'; hint.style.color = ''; }, 1500);
 }
 
 // ═══ INIT ═══
