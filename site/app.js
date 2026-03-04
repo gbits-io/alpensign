@@ -13,14 +13,49 @@
 
 const RP_ID = window.location.hostname;
 
-// ---- Solana Constants ----
-const SOLANA_RPC = 'https://api.devnet.solana.com';
+// ---- Solana Network Config ----
+// Loaded from localStorage; defaults to mainnet.
+// All network-sensitive values are derived from this single source of truth.
 const MEMO_PROGRAM_ID = 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr';
 const APP_IDENTITY = {
   name: 'AlpenSign',
   uri: window.location.origin,
   icon: './images/alpensign_logo_small_dark.png',
 };
+
+const NETWORKS = {
+  mainnet: {
+    label: 'Mainnet',
+    chain: 'solana:mainnet',
+    rpc: 'https://api.mainnet-beta.solana.com',
+    explorerSuffix: '',
+  },
+  devnet: {
+    label: 'Devnet',
+    chain: SOLANA_CHAIN(),
+    rpc: 'https://api.devnet.solana.com',
+    explorerSuffix: '?cluster=devnet',
+  },
+};
+
+function loadNetwork() {
+  try {
+    const saved = localStorage.getItem('alpensign_network');
+    return (saved === 'devnet') ? 'devnet' : 'mainnet'; // default: mainnet
+  } catch (e) { return 'mainnet'; }
+}
+
+function saveNetwork(net) {
+  localStorage.setItem('alpensign_network', net);
+}
+
+let activeNetwork = loadNetwork();
+
+function net() { return NETWORKS[activeNetwork]; }
+// Convenience shorthands used throughout
+function SOLANA_RPC() { return net().rpc; }
+function SOLANA_CHAIN() { return net().chain; }
+function EXPLORER_SUFFIX() { return net().explorerSuffix; }
 
 let solanaConnection = null;
 
@@ -108,7 +143,7 @@ async function mwaAuthorize() {
     mwaTransact(async (wallet) => {
       console.log('[MWA] Session established, calling authorize...');
       const auth = await wallet.authorize({
-        chain: 'solana:devnet',
+        chain: SOLANA_CHAIN(),
         identity: APP_IDENTITY,
         auth_token: state.mwaAuthToken || undefined,
       });
@@ -169,7 +204,7 @@ async function mwaSignAndSend(memoPayload, walletBase58) {
     mwaTransact(async (wallet) => {
       console.log('[MWA] Session established, reauthorizing...');
       const auth = await wallet.authorize({
-        chain: 'solana:devnet',
+        chain: SOLANA_CHAIN(),
         identity: APP_IDENTITY,
         auth_token: state.mwaAuthToken || undefined,
       });
@@ -423,7 +458,7 @@ function initSolanaRPC() {
       console.warn('solanaWeb3 not loaded');
       return false;
     }
-    solanaConnection = new solanaWeb3.Connection(SOLANA_RPC, {
+    solanaConnection = new solanaWeb3.Connection(SOLANA_RPC(), {
       commitment: 'confirmed',
       confirmTransactionInitialTimeout: 30000,
     });
@@ -569,7 +604,7 @@ async function updateHomeView() {
 
   const wtEl = $('homeWalletType');
   if (isSeekerDevice() && addr) {
-    wtEl.textContent = 'Seed Vault (Devnet)';
+    wtEl.textContent = `Seed Vault (${net().label})`;
     wtEl.style.color = 'var(--accent-light)';
   } else if (addr) {
     wtEl.textContent = 'Local only';
@@ -589,7 +624,7 @@ async function updateHomeView() {
 
 function sealItemHTML(s, expanded) {
   const clickable = s.solanaTxReal && s.solanaTx;
-  const explorerUrl = clickable ? `https://explorer.solana.com/tx/${s.solanaTx}?cluster=devnet` : '';
+  const explorerUrl = clickable ? `https://explorer.solana.com/tx/${s.solanaTx}${EXPLORER_SUFFIX()}` : '';
   const hashShort = s.hash ? s.hash.substring(0, 10) + '…' + s.hash.slice(-6) : '—';
   const txShort = s.solanaTx ? s.solanaTx.substring(0, 10) + '…' + s.solanaTx.slice(-4) : '—';
   const ts = formatTime(s.timestamp);
@@ -725,7 +760,13 @@ async function updateSettingsView() {
     sgtEl.style.color = '';
   }
 
-  // MWA diagnostic status
+  // Sync network toggle state
+  applyNetworkToggle();
+  const netLabelEl = $('settingsNetworkLabel');
+  if (netLabelEl) {
+    netLabelEl.textContent = `Solana ${net().label}`;
+    netLabelEl.style.color = activeNetwork === 'mainnet' ? 'var(--accent-light)' : 'var(--amber)';
+  }
   const mwaEl = $('settingsMWAStatus');
   if (mwaReady) {
     mwaEl.textContent = 'Loaded ✓';
@@ -757,7 +798,7 @@ function adaptSealStepsForDevice() {
       ? 'ECDSA-SHA256 (P-256) · Hardware-bound · SGT ✓'
       : 'ECDSA-SHA256 (P-256) · Hardware-bound';
     $('step-post-text').textContent = 'Post Seal to Solana';
-    $('step-post-sub').textContent = 'Memo via MWA → Seed Vault → Devnet';
+    $('step-post-sub').textContent = `Memo via MWA → Seed Vault → ${net().label}`;
     $('step-confirm-text').textContent = 'Seal Confirmed';
     $('step-confirm-sub').textContent = 'Immutable on-chain record';
   } else {
@@ -927,7 +968,7 @@ $('btnConnectWallet').addEventListener('click', () => {  // NOT async!
   transactFn(async (wallet) => {
     console.log('[MWA] Session established, calling authorize...');
     const auth = await wallet.authorize({
-      chain: 'solana:devnet',
+      chain: SOLANA_CHAIN(),
       identity: APP_IDENTITY,
       auth_token: state.mwaAuthToken || undefined,
     });
@@ -1229,7 +1270,7 @@ $('btnSeal').addEventListener('click', async () => {
             transactFn(async (wallet) => {
               console.log('[MWA] Seal session established, authorizing...');
               const auth = await wallet.authorize({
-                chain: 'solana:devnet',
+                chain: SOLANA_CHAIN(),
                 identity: APP_IDENTITY,
                 auth_token: state.mwaAuthToken || undefined,
               });
@@ -1399,10 +1440,10 @@ $('btnSeal').addEventListener('click', async () => {
     if (onChain) {
       titleEl.textContent = 'Transaction Sealed';
       titleEl.style.color = 'var(--accent-light)';
-      subEl.textContent = 'Immutable proof posted to Solana Devnet via Seed Vault';
+      subEl.textContent = `Immutable proof posted to Solana ${net().label} via Seed Vault`;
       $('resultTx').textContent = solanaTxId;
       $('resultTx').style.cursor = 'pointer';
-      $('resultTxConfirm').textContent = 'CONFIRMED on Devnet ✓';
+      $('resultTxConfirm').textContent = `CONFIRMED on ${net().label} ✓`;
       $('resultTxConfirm').style.color = 'var(--accent-light)';
       $('btnViewExplorer').classList.remove('hidden');
     } else if (!isSeekerDevice()) {
@@ -1440,7 +1481,7 @@ $('btnSeal').addEventListener('click', async () => {
 
 function openSolanaExplorer() {
   if (state._lastTxId && state._lastTxReal) {
-    window.open(`https://explorer.solana.com/tx/${state._lastTxId}?cluster=devnet`, '_blank');
+    window.open(`https://explorer.solana.com/tx/${state._lastTxId}${EXPLORER_SUFFIX()}`, '_blank');
   }
 }
 window.openSolanaExplorer = openSolanaExplorer;
@@ -1491,6 +1532,7 @@ function copyWallet() {
     });
   }
 }
+window.switchNetwork = switchNetwork;
 window.copyWallet = copyWallet;
 
 // About page
@@ -1547,7 +1589,68 @@ document.getElementById('btnConnectEID')?.addEventListener('click', invokeSwiyu)
 
 let demoMode = false;
 
-function loadDemoMode() {
+function switchNetwork(net) {
+  if (net !== 'mainnet' && net !== 'devnet') return;
+  const previous = activeNetwork;
+  if (net === previous) return;
+
+  // Warn if there's an active MWA auth token — it's network-specific
+  if (state.mwaAuthToken) {
+    const confirmed = confirm(
+      `Switching to ${NETWORKS[net].label} requires re-authorization with your wallet.\n\nYour existing wallet connection will be cleared. Continue?`
+    );
+    if (!confirmed) {
+      // Revert the toggle UI
+      applyNetworkToggle();
+      return;
+    }
+    // Clear MWA session — it's network-specific
+    state.mwaAuthToken = null;
+    state.mwaWalletUriBase = null;
+    saveState();
+  }
+
+  activeNetwork = net;
+  saveNetwork(net);
+
+  // Re-init RPC connection on the new network
+  solanaConnection = new solanaWeb3.Connection(SOLANA_RPC(), {
+    commitment: 'confirmed',
+    confirmTransactionInitialTimeout: 30000,
+  });
+
+  applyNetworkToggle();
+  updateNetworkBadge();
+  updateSettingsView();
+  console.log(`[Network] Switched to ${net().label} — RPC: ${SOLANA_RPC()}`);
+}
+
+function applyNetworkToggle() {
+  const isMainnet = activeNetwork === 'mainnet';
+  const track = $('networkToggleTrack');
+  const thumb = $('networkToggleThumb');
+  const labelLeft = $('networkLabelDevnet');
+  const labelRight = $('networkLabelMainnet');
+  if (track) {
+    track.style.background = isMainnet ? 'rgba(20,241,149,0.15)' : 'rgba(255,176,0,0.12)';
+    track.style.borderColor = isMainnet ? 'var(--accent-light)' : 'var(--amber)';
+  }
+  if (thumb) {
+    thumb.style.background = isMainnet ? 'var(--accent-light)' : 'var(--amber)';
+    thumb.style.transform = isMainnet ? 'translateX(20px)' : 'translateX(0)';
+  }
+  if (labelLeft) labelLeft.style.opacity = isMainnet ? '0.4' : '1';
+  if (labelRight) labelRight.style.opacity = isMainnet ? '1' : '0.4';
+}
+
+function updateNetworkBadge() {
+  const badge = $('networkHeaderBadge');
+  if (!badge) return;
+  const isMainnet = activeNetwork === 'mainnet';
+  badge.textContent = isMainnet ? 'MAINNET' : 'DEVNET';
+  badge.style.color = isMainnet ? 'var(--accent-light)' : 'var(--amber)';
+  badge.style.borderColor = isMainnet ? 'var(--accent-light)' : 'var(--amber)';
+}
   try {
     demoMode = JSON.parse(localStorage.getItem('alpensign_demo_mode')) || false;
   } catch (e) { demoMode = false; }
@@ -1733,6 +1836,7 @@ async function init() {
   autoDismissBanner();
   initSolanaRPC();
   updateHeaderBadge();
+  updateNetworkBadge();
   applyDemoMode();
 
   // Pre-load MWA on Seeker

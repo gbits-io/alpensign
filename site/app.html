@@ -976,7 +976,10 @@ preloadMWA();
       <img src="./images/alpensign_logo_small_dark.png" alt="AlpenSign" onerror="this.style.display='none'">
       ALPENSIGN
     </div>
-    <span id="headerBadge" class="status-badge badge-not-enrolled">Not Enrolled</span>
+    <div style="display:flex; align-items:center; gap:6px;">
+      <span id="networkHeaderBadge" style="font-size:0.5rem; font-weight:700; letter-spacing:0.08em; padding:2px 7px; border-radius:20px; border:1px solid var(--accent-light); color:var(--accent-light); font-family:monospace;">MAINNET</span>
+      <span id="headerBadge" class="status-badge badge-not-enrolled">Not Enrolled</span>
+    </div>
   </div>
 
   <!-- Device Detection Banner -->
@@ -1246,7 +1249,7 @@ preloadMWA();
         <div class="seal-step-icon">4</div>
         <div>
           <div class="seal-step-text" id="step-post-text">Post Seal to Solana</div>
-          <div class="seal-step-sub" id="step-post-sub">Memo transaction on Devnet</div>
+          <div class="seal-step-sub" id="step-post-sub">Memo transaction on Mainnet</div>
         </div>
       </div>
       <div class="seal-step" id="step-confirm">
@@ -1375,7 +1378,7 @@ preloadMWA();
       </div>
       <div class="info-row">
         <span class="info-label">Network</span>
-        <span class="info-value text-purple">Solana Devnet</span>
+        <span class="info-value font-sm" id="settingsNetworkLabel">Solana Mainnet</span>
       </div>
       <div class="info-row">
         <span class="info-label">Memo Program</span>
@@ -1384,6 +1387,24 @@ preloadMWA();
       <button class="btn btn-ghost mt-1 hidden" id="btnReconnectWallet" style="font-size: 0.75rem;">
         🔗 Reconnect Seed Vault Wallet
       </button>
+    </div>
+
+    <!-- Network Toggle -->
+    <div class="card">
+      <div class="info-row" style="border-bottom: none;">
+        <div>
+          <span class="info-label" style="font-size: 0.8rem; color: var(--text);">Solana Network</span>
+          <div class="font-xs text-dim" style="margin-top: 0.15rem;">Switching requires wallet re-authorization</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+          <span id="networkLabelDevnet" style="font-size:0.7rem; font-weight:600; color:var(--amber); font-family:monospace; opacity:0.4; transition:opacity 0.3s;">DEV</span>
+          <label style="position:relative; display:inline-block; width:44px; height:24px; flex-shrink:0;" onclick="switchNetwork(activeNetwork === 'mainnet' ? 'devnet' : 'mainnet')">
+            <span id="networkToggleTrack" style="position:absolute; cursor:pointer; inset:0; background:rgba(20,241,149,0.15); border:1px solid var(--accent-light); border-radius:24px; transition:0.3s;"></span>
+            <span id="networkToggleThumb" style="position:absolute; height:18px; width:18px; left:3px; bottom:3px; background:var(--accent-light); border-radius:50%; transition:0.3s; transform:translateX(20px);"></span>
+          </label>
+          <span id="networkLabelMainnet" style="font-size:0.7rem; font-weight:600; color:var(--accent-light); font-family:monospace; opacity:1; transition:opacity 0.3s;">MAIN</span>
+        </div>
+      </div>
     </div>
 
     <!-- Demo Mode Toggle -->
