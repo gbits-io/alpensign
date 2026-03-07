@@ -537,7 +537,9 @@ function initSolanaRPC() {
       console.warn('solanaWeb3 not loaded');
       return false;
     }
-    solanaConnection = new solanaWeb3.Connection(SOLANA_RPC(), {
+    const rpcUrl = SOLANA_RPC();
+    console.log(`[RPC] Initializing Solana connection: ${rpcUrl.replace(/api-key=.*/, 'api-key=***')}`);
+    solanaConnection = new solanaWeb3.Connection(rpcUrl, {
       commitment: 'confirmed',
       confirmTransactionInitialTimeout: 30000,
     });
@@ -1300,7 +1302,8 @@ $('btnSeal').addEventListener('click', async () => {
         txBase64 = btoa(String.fromCharCode(...serialized));
         console.log('[Seal] TX serialized:', serialized.length, 'bytes');
       } catch (buildErr) {
-        failReason = 'TX build failed: ' + (buildErr.message || buildErr);
+        const rpcHint = SOLANA_RPC().includes('helius') ? 'Helius' : 'public';
+        failReason = `TX build failed (${rpcHint} ${activeNetwork}): ${buildErr.message || buildErr}`;
         console.error('[Seal]', failReason);
       }
 

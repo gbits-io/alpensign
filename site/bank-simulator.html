@@ -1804,7 +1804,6 @@ async function resolveSeekerId() {
     } catch (e) { /* ignore */ }
   }
   const address = resolvedAddress || SIMULATED_ADDRESSES[val] || generateAddress();
-  alert(`[DEBUG] realWalletAddress: ${realWalletAddress}\nlocalStorage walletAddr: ${(() => { try { return JSON.parse(localStorage.getItem('alpensign_state'))?.walletAddr || 'null'; } catch(e) { return 'error'; } })()}\nresolved: ${resolvedAddress}\nfinal address: ${address}`);
   const isRealAddress = !!resolvedAddress;
 
   await sleep(isRealAddress ? 800 : 1500);
