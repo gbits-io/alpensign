@@ -1793,12 +1793,19 @@ async function resolveSeekerId() {
   btn.disabled = true;
   btn.innerHTML = '<div class="spinner"></div> Resolving on Solana…';
 
-  // Use real wallet address from AlpenSign bridge if available,
-  // otherwise fall back to simulated addresses for offline demo.
-  const address = realWalletAddress || SIMULATED_ADDRESSES[val] || generateAddress();
-  const isRealAddress = !!realWalletAddress;
+  // Primary: read real wallet address from AlpenSign's localStorage (same origin).
+  // Secondary: BroadcastChannel (if wallet was just connected).
+  // Fallback: simulated addresses for fully offline demo.
+  let resolvedAddress = realWalletAddress;
+  if (!resolvedAddress) {
+    try {
+      const alpensignState = JSON.parse(localStorage.getItem('alpensign_state'));
+      if (alpensignState?.walletAddr) resolvedAddress = alpensignState.walletAddr;
+    } catch (e) { /* ignore */ }
+  }
+  const address = resolvedAddress || SIMULATED_ADDRESSES[val] || generateAddress();
+  const isRealAddress = !!resolvedAddress;
 
-  // Brief delay for visual feedback (real RPC would take ~500ms)
   await sleep(isRealAddress ? 800 : 1500);
 
   state.seekerId = val;

@@ -937,6 +937,7 @@ function adaptEnrollStep2() {
     $('btnConnectWallet').classList.add('hidden');
     $('btnSimulateBank').classList.remove('hidden');
     $('bankPairingSection').classList.remove('hidden');
+    $('btnOpenBankPortal').classList.remove('hidden');
     applyDemoMode();
     $('enrollStatus2').textContent = 'On-chain posting not available without Seeker.';
   }
@@ -1095,6 +1096,7 @@ $('btnConnectWallet').addEventListener('click', () => {  // NOT async!
 
     $('btnSimulateBank').classList.remove('hidden');
     $('bankPairingSection').classList.remove('hidden');
+    $('btnOpenBankPortal').classList.remove('hidden');
     applyDemoMode();
   })
   .catch((err) => {
@@ -1948,6 +1950,7 @@ async function init() {
       $('walletAddr').textContent = state.walletAddr;
       $('btnSimulateBank').classList.remove('hidden');
       $('bankPairingSection').classList.remove('hidden');
+    $('btnOpenBankPortal').classList.remove('hidden');
     }
   } else if (state.welcomeSeen) {
     $('view-enroll').classList.add('active');

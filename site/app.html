@@ -1072,6 +1072,15 @@ preloadMWA();
       </button>
       <button class="btn btn-amber mt-2 hidden demo-only" id="btnSimulateBank">Simulate: Bank Confirms Enrollment</button>
 
+      <!-- Link to Bank Simulator (demo convenience) -->
+      <div id="btnOpenBankPortal" class="hidden mt-2">
+        <button class="btn" onclick="window.open('bank-simulator.html','_blank')"
+          style="width:100%; background: linear-gradient(135deg, #1a2744 0%, #243354 100%); border: 1px solid rgba(212, 168, 67, 0.3); color: var(--amber); font-size: 0.85rem;">
+          🏦 Open Bank Portal
+        </button>
+        <div class="font-xs text-dim text-center" style="margin-top: 0.3rem;">Opens the bank simulator in a new tab</div>
+      </div>
+
       <!-- Bank Pairing: Challenge Signing -->
       <div id="bankPairingSection" class="hidden mt-2">
         <div class="card" style="border: 1px solid rgba(212, 168, 67, 0.2); background: rgba(212, 168, 67, 0.04);">
