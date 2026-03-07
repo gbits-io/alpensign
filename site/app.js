@@ -1651,6 +1651,8 @@ function updateNetworkBadge() {
   badge.style.color = isMainnet ? 'var(--accent-light)' : 'var(--amber)';
   badge.style.borderColor = isMainnet ? 'var(--accent-light)' : 'var(--amber)';
 }
+
+function loadDemoMode() {
   try {
     demoMode = JSON.parse(localStorage.getItem('alpensign_demo_mode')) || false;
   } catch (e) { demoMode = false; }
