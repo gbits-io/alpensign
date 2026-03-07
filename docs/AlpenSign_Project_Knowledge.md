@@ -1,8 +1,8 @@
 # AlpenSign — Project Knowledge Base
 
-> This document captures the complete accumulated context from 9 development sessions (Feb 11–24, 2026) building AlpenSign for the Solana Seeker Hackathon Monolith. It is intended to be added to a Claude Project so that new conversations can continue without re-explaining the project.
+> This document captures the complete accumulated context from 10 development sessions (Feb 11–Mar 7, 2026) building AlpenSign for the Solana Seeker Hackathon Monolith. It is intended to be added to a Claude Project so that new conversations can continue without re-explaining the project.
 
-**Last updated:** 2026-02-24, end of session 9 (v0.6.0)
+**Last updated:** 2026-03-07, end of session 10 (v0.7.0)
 
 ---
 
@@ -32,25 +32,26 @@ AlpenSign is a transaction sealing solution for banks built on the Solana Seeker
 
 | Layer | What it proves | Current status |
 |-------|---------------|----------------|
-| 1. Genesis Token (Device Identity) | The Seeker is genuine hardware, verified by SKR-staked Guardians via TEEPIN | **Real (Tier 1)** — queries beeman's SGT API on mainnet during enrollment |
+| 1. Genesis Token (Device Identity) | The Seeker is genuine hardware, verified by SKR-staked Guardians via TEEPIN | **Real (Tier 1.5)** — direct on-chain Token-2022 verification via Helius mainnet RPC. Checks `getTokenAccountsByOwner` + `mintAuthority` match against known SGT authority (`GT2zuH...p4p3A4`). Replaced beeman's SGT API (decommissioned March 2026). |
 | 2. Bank Credential (Client Identity) | The bank has bound this client to this verified device via SAS attestation | **Simulated** — bank simulator issues mock SAS credential; real SAS requires bank cooperation |
-| 3. Transaction Seal (Payment Authorization) | The client biometrically confirmed this specific payment, signed by Seed Vault, posted to Solana | **Real and working** on devnet |
+| 3. Transaction Seal (Payment Authorization) | The client biometrically confirmed this specific payment, signed by Seed Vault, posted to Solana | **Real and working** — mainnet or devnet via Helius RPC (configurable network toggle) |
 
 ---
 
-## 3. Current App Architecture (v0.6.0)
+## 3. Current App Architecture (v0.7.0)
 
 ### Stack
 
 | Component | Source | Notes |
 |-----------|--------|-------|
-| Frontend | Vanilla HTML/JS, no framework | Single-page app: `app.html` + `app.js`, no build tools |
+| Frontend | Vanilla HTML/JS, no framework | Single-page app: `app.html` + `app.js` + `config.js`, no build tools |
 | Solana web3.js | unpkg IIFE `@1.98.0` | Global `solanaWeb3` object |
 | MWA protocol | esm.sh ESM `@2.2.5` | Preloaded to `window.__mwaTransact` via `<script type="module">` |
 | WebAuthn | Browser native | Platform authenticator (Seeker secure element) |
-| Solana RPC | `api.devnet.solana.com` | Blockhash, balance, confirmation |
-| Hosting | HTTPS required for MWA | alpensign.com via GitHub Pages |
-| Bank Simulator | Standalone HTML | `bank-simulator.html`, communicates via BroadcastChannel |
+| Solana RPC | Helius (`mainnet.helius-rpc.com` / `devnet.helius-rpc.com`) | API key in `config.js` (not committed to git). Public Solana RPCs block browser-origin requests (403). |
+| SGT Verification | Helius mainnet RPC | Direct Token-2022 `getTokenAccountsByOwner` + `mintAuthority` check. Replaced beeman's SGT API. |
+| Hosting | Netlify (HTTPS required for MWA) | alpensign.com, deployed from GitHub |
+| Bank Simulator | Standalone HTML | `bank-simulator.html`, communicates via BroadcastChannel + shared localStorage |
 
 ### App Views
 
@@ -59,7 +60,7 @@ AlpenSign is a transaction sealing solution for banks built on the Solana Seeker
 - **Home** — Enrolled state, recent seals, Demo Controls card (hidden by default, see Demo Mode)
 - **Seal** — Payment details review → biometric sign → Solana posting → Explorer link
 - **History** — Expanded seal cards with timestamp, hash, IBAN, reference, Explorer link, device type
-- **Settings** — Device info, wallet status, credential ID, reconnect wallet, Demo Mode toggle, reset
+- **Settings** — Device info, wallet status, credential ID, reconnect wallet, Demo Mode toggle, **Network toggle (mainnet/devnet)**, reset
 - **About** — Trust model explanation, security note about PIN vs fingerprint, links
 
 ### State Schema
@@ -85,7 +86,8 @@ localStorage.alpensign_state = {
   welcomeSeen: boolean
 }
 
-localStorage.alpensign_demo_mode = boolean  // separate key, defaults to false
+localStorage.alpensign_network = 'mainnet' | 'devnet'  // separate key, defaults to mainnet
+localStorage.alpensign_demo_mode = boolean              // separate key, defaults to false
 ```
 
 ### What's Real vs Simulated
@@ -96,17 +98,20 @@ localStorage.alpensign_demo_mode = boolean  // separate key, defaults to false
 - MWA authorization with Seed Vault hardware
 - Real Solana wallet address from Seed Vault
 - Memo transaction signed by Seed Vault private key
-- Transaction posted to Solana devnet
+- Transaction posted to Solana (mainnet or devnet, configurable)
 - Explorer link to real on-chain transaction
-- Genesis Token verification via beeman's SGT API (mainnet)
+- Genesis Token verification via direct on-chain Token-2022 check (Helius mainnet RPC)
 - Challenge signing for bank pairing (WebAuthn over bank challenge string)
 - BroadcastChannel communication between AlpenSign and bank simulator
+- Real wallet address shared with bank simulator (via BroadcastChannel + localStorage)
+- "Open Bank Portal" button in AlpenSign launches bank simulator in new tab
 
 **Simulated:**
 - SAS credential issuance by bank (bank simulator mocks the attestation)
 - Client NFT minting
 - Push notification delivery (BroadcastChannel substitutes for push/deep links)
 - SIC settlement status in bank simulator
+- `.skr` domain → Solana address resolution (uses real wallet address from AlpenSign rather than on-chain ANS lookup; see Technical Decisions)
 
 ---
 
@@ -126,7 +131,7 @@ The bank simulator (`bank-simulator.html`) is a standalone web app that demonstr
 
 1. Static bank/client data (contract KB-2026-004871, IBAN CH93...)
 2. `.skr` input field (auto-appends .skr, validates format, maps to redpill.skr by default)
-3. Simulated .skr → Solana address resolution, Genesis Token status, Guardian info, SKR stake
+3. Simulated .skr → Solana address resolution — uses real wallet address from AlpenSign (via localStorage `alpensign_state.walletAddr`) when available, falls back to hardcoded demo addresses for offline testing
 4. Challenge string generation (e.g., `BB123-A4F9C2E1`) — the client enters this in AlpenSign to prove device possession
 5. Signature verification field — bank advisor pastes the signature from AlpenSign, or clicks "Skip: Simulate Verification" for faster demo
 6. SAS attestation result card with full schema (alpensign:bank-credential:v1, issuer, contract, device, wallet, expiry, TX)
@@ -153,13 +158,16 @@ The bank simulator and AlpenSign communicate via `BroadcastChannel('alpensign-ba
 { type: 'payment-request', requestId, payment: { creditor, iban, amount, reference, date, address, info } }
 
 // AlpenSign → Bank
+{ type: 'wallet-connected', walletAddress, seekerId }  // sent when Seed Vault wallet connects
 { type: 'seal-complete', requestId, seal: { hash, signature, solanaTx, solanaTxReal, deviceType, timestamp, recipient, amount } }
 ```
 
 **How it works in the demo:**
-1. Open bank-simulator.html in tab 1, app.html in tab 2 (same browser)
+1. Open app.html on Seeker, connect wallet, then tap "🏦 Open Bank Portal" to launch bank-simulator.html in a new tab
 2. **Pairing** (manual entry): Bank generates challenge → client types it into AlpenSign → signs with biometric → copies signature → pastes in bank portal (or skip to simulate) → bank verifies & issues attestation → AlpenSign auto-completes enrollment via BroadcastChannel `attestation-confirmed` message
 3. **Payments** (automatic): Bank creates SIC payment → AlpenSign notification appears instantly → client taps, reviews, seals → bank tab auto-updates to "sealed" with full proof via BroadcastChannel `seal-complete` message
+
+**Address synchronization:** When AlpenSign connects a wallet, it broadcasts `wallet-connected` with the real Solana address. The bank simulator also reads `alpensign_state.walletAddr` from localStorage as a fallback. This ensures both apps always display the same real wallet address when resolving `.skr` IDs.
 
 **Production migration:** BroadcastChannel is a demo convenience. In production, the bank would push payment requests via push notifications, deep links, or QR codes, and receive seal confirmations via webhook or Solana on-chain event subscription. See roadmap item: "Replace BroadcastChannel with real delivery channels."
 
@@ -203,7 +211,7 @@ During enrollment step 2, after connecting the Seed Vault wallet, a "Bank Pairin
 
 | # | Constraint | What Happens If Violated |
 |---|---|---|
-| 1 | Use `chain: 'solana:devnet'`, NOT `cluster` in `authorize()` | Silent 30s timeout, no Seed Vault UI appears |
+| 1 | Use `chain: 'solana:devnet'` or `'solana:mainnet'`, NOT `cluster` in `authorize()` | Silent 30s timeout, no Seed Vault UI appears |
 | 2 | `identity.icon` must be a relative URI (e.g., `'./images/logo.png'`) | Error `-32602`, authorization rejected |
 | 3 | `transact()` must fire synchronously from a click handler — no `await` before it | Chrome blocks `solana-wallet://` Intent, MWA never launches |
 | 4 | No network calls (RPC) inside MWA `transact()` callback | RPC calls fail/timeout while Chrome is backgrounded for wallet Intent |
@@ -296,6 +304,7 @@ Brave browser on Android strips the device model from the User-Agent string for 
 | v0.5.4 | Robust signature format handling (Uint8Array, ArrayBuffer, base64, base58) |
 | v0.5.5 | Enhanced History (timestamp, hash, IBAN, Explorer link), About page, splash screen with mountain logo, auto-dismiss device banner (5s), signing request notification stays until tapped |
 | v0.6.0 | **Bank simulator** (bank-simulator.html), **BroadcastChannel** bridge between bank and AlpenSign, **challenge signing** for bank pairing (WebAuthn over challenge string), **Demo Mode toggle** in Settings (default off, hides simulate buttons), bank pairing section in enrollment step 2 |
+| v0.7.0 | **Helius RPC migration** (public Solana RPCs return 403 from browsers), **config.js** for API key management (not committed to git), **direct on-chain SGT verification** via Token-2022 `getTokenAccountsByOwner` + `mintAuthority` check (replaced beeman's decommissioned SGT API), **mainnet/devnet network toggle** in Settings, **bank simulator address sync** (real wallet address via BroadcastChannel + localStorage), **Open Bank Portal** button in enrollment, fixed `loadDemoMode()` missing function declaration, fixed `NETWORKS` circular TDZ reference |
 
 ---
 
@@ -305,6 +314,8 @@ Brave browser on Android strips the device model from the User-Agent string for 
 |------|---------|----------|
 | `app.html` | Main app shell (HTML + CSS) | alpensign.com/app.html |
 | `app.js` | App logic (enrollment, sealing, MWA, BroadcastChannel, challenge signing, state) | alpensign.com/app.js |
+| `config.js` | API keys (Helius RPC). **Not committed to git.** Must be manually deployed. | alpensign.com/config.js |
+| `config.example.js` | Template for config.js — committed to git | alpensign.com/config.example.js |
 | `bank-simulator.html` | Bank-side simulator (pairing + SIC payments, BroadcastChannel) | alpensign.com/bank-simulator.html |
 | `mwa-debug.html` | Standalone MWA diagnostic tool | alpensign.com/mwa-debug.html |
 | `index.html` | Landing page | alpensign.com/ |
@@ -323,11 +334,15 @@ Brave browser on Android strips the device model from the User-Agent string for 
 ### P0 — Before Hackathon Submission
 
 - [x] **Memo privacy fix** — Now posts only SHA-256 hash as memo payload (v0.5.5+)
-- [x] **Genesis Token verification** — Queries beeman's SGT API on mainnet during enrollment (v0.5.5)
+- [x] **Genesis Token verification** — Direct on-chain Token-2022 verification via Helius mainnet RPC. Beeman's SGT API was decommissioned (DNS NXDOMAIN) in March 2026. Replaced with `getTokenAccountsByOwner` (Token-2022 program) + `mintAuthority` check against known SGT authority. (v0.7.0)
+- [x] **Helius RPC integration** — Public Solana RPCs (`api.mainnet-beta.solana.com`, `api.devnet.solana.com`) block browser-origin requests with HTTP 403. All RPC calls now route through Helius (free tier). API key stored in `config.js` (not committed to git). (v0.7.0)
+- [x] **Network toggle** — Mainnet/devnet toggle in Settings. All network-sensitive values (RPC URL, chain parameter, Explorer suffix) derived from single `activeNetwork` source of truth. (v0.7.0)
+- [x] **Bank simulator address sync** — Bank simulator now shows the real wallet address from AlpenSign (via `wallet-connected` BroadcastChannel message + localStorage fallback). Removed dependency on hardcoded fake addresses. (v0.7.0)
+- [x] **Open Bank Portal button** — AlpenSign enrollment step 2 now has a "🏦 Open Bank Portal" button that opens `bank-simulator.html` in a new tab. (v0.7.0)
 - [x] **Bank simulator** — Completes the demo story with both bank and client sides (v0.6.0)
 - [ ] **dApp Store submission** — PWA→TWA→APK via Bubblewrap. Needs manifest.json, service worker, signing key, Digital Asset Links, store assets (512px icon, 1200×600 banner, screenshots).
-- [ ] **Demo video** — 45s screen recording on Seeker. Script in DEMO_SCRIPT.md. Should now include bank simulator in a split-screen or two-device setup.
-- [ ] **Fresh screenshots** — Current landing page screenshots show old UI. Need v0.6.0 with bank simulator.
+- [x] **Demo video** — 45s screen recording on Seeker.
+- [ ] **Fresh screenshots** — Need v0.7.0 with bank simulator and Helius RPC.
 
 ### P1 — Near-term
 
@@ -390,8 +405,29 @@ Brave browser on Android strips the device model from the User-Agent string for 
 
 **Why devnet (not mainnet)?**
 - Free transactions for development
-- Genesis Token lives on mainnet (need mainnet RPC for that check)
+- Genesis Token lives on mainnet (SGT verification always hits mainnet RPC regardless of active network)
 - Mainnet migration only after SAS + bank pilot
+- Network toggle in Settings allows switching; all RPC URLs, chain parameters, and Explorer links adapt automatically
+
+**Why Helius RPC (not public Solana RPCs)?**
+- Public Solana RPCs (`api.mainnet-beta.solana.com`, `api.devnet.solana.com`) started returning HTTP 403 for browser-origin requests in early 2026
+- Helius free tier provides both mainnet and devnet endpoints with browser CORS support
+- Single API key (in `config.js`) enables all RPC calls: SGT verification, blockhash fetching, transaction posting
+- Fits the zero-backend architecture — still a direct browser-to-RPC call, just through Helius instead of public endpoints
+
+**Why config.js (not environment variables)?**
+- Zero-build-step constraint — no bundler to inject env vars
+- `config.js` loads before `app.js` via `<script>` tag, sets `ALPENSIGN_CONFIG` global
+- `app.js` reads the key with a fallback: `(typeof ALPENSIGN_CONFIG !== 'undefined' && ALPENSIGN_CONFIG.HELIUS_API_KEY) ? ... : 'YOUR_HELIUS_API_KEY'`
+- `config.js` is in `.gitignore` — never committed. `config.example.js` is the template.
+- **Deployment caveat:** Netlify atomic deploys from git don't include `config.js`. It must be re-uploaded manually after each deploy, or the key must be inlined in `app.js` on the deploy branch.
+
+**Why `.skr` resolution uses AlpenSign's wallet address (not on-chain ANS lookup)?**
+- `.skr` domains use the Alternative Name Service (ANS) by onsol-labs, not Bonfida SNS
+- On-chain ANS resolution requires the `.skr` TLD parent account address (not publicly documented as a simple constant), SHA-256 hashing, and PDA derivation
+- Implementing this in zero-dependency vanilla JS is significant work with uncertain ROI for a hackathon
+- The bank simulator instead reads the real wallet address from AlpenSign (via localStorage and BroadcastChannel), which is architecturally correct for the demo: the bank talks to the client's app, not to an independent name service
+- Production banks would resolve `.skr` → address server-side via their own RPC with the ANS SDK
 
 **Why WebAuthn + MWA (two auth steps)?**
 - WebAuthn creates a device-bound credential with biometric gate
@@ -445,6 +481,7 @@ Diagnostic tool: `alpensign.com/mwa-debug.html` — tests each layer independent
 | 7 | Feb 14 (c) | App v0.5.0 | MWA integration, HTTPS debugging, connection hang diagnosis |
 | 8 | Feb 15 | App v0.5.0–v0.5.5 | Three MWA bugs fixed (chain/cluster, icon URI, signature format), Chrome gesture workarounds, learnings doc, History enhancement, About page, splash screen, roadmap extensions, dApp Store plan, GTM strategy, Gemini review analysis |
 | 9 | Feb 24 | App v0.6.0 + Bank Simulator | .skr vs .sol analysis, NFT vs SAS credential decision, bank simulator (pairing + SIC payments), BroadcastChannel bridge, challenge signing, Demo Mode toggle, Brave browser issue identified (deferred) |
+| 10 | Mar 7 | App v0.7.0 + Helius RPC + SGT fix | Fixed `loadDemoMode()` missing function declaration, fixed `NETWORKS` TDZ circular reference, discovered beeman's SGT API decommissioned (DNS NXDOMAIN), replaced with direct on-chain Token-2022 verification via Helius mainnet RPC, discovered public Solana RPCs blocking browser-origin requests (HTTP 403), migrated all RPC calls to Helius (mainnet + devnet), added `config.js` for API key management, added mainnet/devnet network toggle in Settings, synced real wallet address between AlpenSign and bank simulator via BroadcastChannel + localStorage, added "Open Bank Portal" button, moved hosting from GitHub Pages to Netlify |
 
 **Full transcripts:** Available in `/mnt/transcripts/` (includes 9 files). Refer to specific transcripts for detailed code changes and debugging sequences.
 
@@ -471,3 +508,58 @@ Both map human-readable names to Solana addresses. Key differences:
 ### Demo Strategy: Manual Pairing, Automatic Payments
 
 **Decision:** Pairing uses manual copy-paste (friction is the point — demonstrates independence of two channels). Payment flow uses BroadcastChannel (seamless experience, creates "wow" moment for demo).
+
+---
+
+## 17. Key Architectural Changes from Session 10
+
+### Beeman's SGT API Decommissioned
+
+In March 2026, beeman's SGT API (`sgt-api.beeman.dev`) was taken offline — the DNS subdomain returns NXDOMAIN. The parent domain `beeman.dev` is still reachable. This broke AlpenSign's Genesis Token verification (Layer 1).
+
+**Replacement:** Direct on-chain Token-2022 verification via Helius mainnet RPC. The new `verifySGT()` function:
+
+1. Calls `getTokenAccountsByOwner` with the Token-2022 program ID (`TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb`)
+2. Extracts mint addresses from parsed token account data
+3. For each mint, calls `getAccountInfo` with `jsonParsed` encoding
+4. Checks `parsed.info.mintAuthority` against the known SGT authority (`GT2zuHVaZQYZSyQMgJPLzvkmyztfyXg2NJunqFp4p3A4`)
+5. Falls back to raw base64 byte parsing (COption<Pubkey> at offset 0–35) if jsonParsed doesn't return the authority
+
+This is between Tier 1 (third-party API) and Tier 2 (full `@solana/spl-token` verification) from the roadmap — it verifies the mint authority on-chain without needing the spl-token SDK, keeping the zero-dependency architecture intact.
+
+### Public Solana RPC Blocking Browser Requests
+
+In early 2026, the public Solana RPC endpoints began returning HTTP 403 for requests originating from browser contexts. This affected all RPC methods: `getLatestBlockhash`, `getTokenAccountsByOwner`, `sendTransaction`, etc.
+
+**Solution:** All RPC calls now route through Helius (free tier). The `NETWORKS` config dynamically constructs RPC URLs based on whether a Helius API key is configured:
+
+```javascript
+const HELIUS_API_KEY = (typeof ALPENSIGN_CONFIG !== 'undefined' && ALPENSIGN_CONFIG.HELIUS_API_KEY)
+  ? ALPENSIGN_CONFIG.HELIUS_API_KEY
+  : 'YOUR_HELIUS_API_KEY';
+
+const NETWORKS = {
+  mainnet: {
+    rpc: HELIUS_API_KEY !== 'YOUR_HELIUS_API_KEY'
+      ? `https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`
+      : 'https://api.mainnet-beta.solana.com',  // fallback (will 403)
+  },
+  devnet: {
+    rpc: HELIUS_API_KEY !== 'YOUR_HELIUS_API_KEY'
+      ? `https://devnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`
+      : 'https://api.devnet.solana.com',  // fallback (will 403)
+  },
+};
+```
+
+### Bank Simulator Address Synchronization
+
+Previously, the bank simulator used a hardcoded lookup table of fake Solana addresses for `.skr` IDs. This meant the bank simulator showed a different address than AlpenSign, undermining the demo.
+
+**Fix:** Three-tier address resolution in the bank simulator:
+
+1. **BroadcastChannel** — AlpenSign sends `wallet-connected` message with real address when wallet connects
+2. **localStorage** — Bank simulator reads `alpensign_state.walletAddr` from shared localStorage (same origin)
+3. **Fallback** — Hardcoded `SIMULATED_ADDRESSES` table only used if AlpenSign was never connected
+
+The localStorage approach is the most reliable because it doesn't depend on message timing — as long as AlpenSign has connected a wallet at least once on that device, the real address is available.

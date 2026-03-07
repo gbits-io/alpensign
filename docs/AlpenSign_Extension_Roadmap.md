@@ -28,7 +28,7 @@ The full payment details remain in `localStorage` on the device and are shown in
 
 ### 0b. Genesis Token Verification (Make Layer 1 Real)
 
-**Status: Tier 1 implemented (v0.5.5) — real mainnet verification via beeman's SGT API. Tier 2 (trustless Token-2022) planned for production.**
+**Status: Tier 1.5 implemented (v0.7.0) — direct on-chain Token-2022 verification via Helius mainnet RPC. Beeman's SGT API was decommissioned (DNS NXDOMAIN) in March 2026. Tier 2 (full `@solana/spl-token` with metadata + group verification) planned for production.**
 
 **Why this matters (the trust chain explained simply):**
 
@@ -64,9 +64,25 @@ AlpenSign needs to verify *one wallet* during enrollment. Three approaches are a
 | **Official Token-2022** | ~60 lines, `@solana/spl-token` | Any mainnet RPC | Trustless, on-chain | Production |
 | **Self-hosted indexer** | Deploy beeman's repo | Own infrastructure | Full control | Scale |
 
-**Tier 1 — Hackathon (now): Beeman's SGT API**
+**Tier 1 — Hackathon (deprecated): Beeman's SGT API**
 
-[beeman/solana-mobile-seeker-genesis-holders](https://github.com/beeman/solana-mobile-seeker-genesis-holders) is an open-source indexer that tracks all Seeker Genesis Token holders. It exposes a simple REST API: pass a wallet address, get back the mint address and metadata if the wallet holds an SGT, or 404 if not. No API key, no npm packages, no build step — fits AlpenSign's zero-dependency architecture.
+> **⚠️ DECOMMISSIONED (March 2026):** The `sgt-api.beeman.dev` subdomain returns DNS NXDOMAIN. This tier is no longer available.
+
+[beeman/solana-mobile-seeker-genesis-holders](https://github.com/beeman/solana-mobile-seeker-genesis-holders) was an open-source indexer that tracked all Seeker Genesis Token holders. It has been replaced in AlpenSign v0.7.0 with direct on-chain verification (Tier 1.5 below).
+
+**Tier 1.5 — Current (v0.7.0): Direct Token-2022 via Helius RPC**
+
+The current implementation queries the Solana mainnet directly via Helius RPC, without needing `@solana/spl-token`:
+
+```javascript
+// Uses Helius mainnet RPC (free tier)
+// 1. getTokenAccountsByOwner with Token-2022 programId
+// 2. For each mint: getAccountInfo with jsonParsed encoding
+// 3. Check parsed.info.mintAuthority === 'GT2zuHVaZQYZSyQMgJPLzvkmyztfyXg2NJunqFp4p3A4'
+// 4. Fallback: raw base64 byte parsing (COption<Pubkey> at offset 0-35)
+```
+
+This checks only the mint authority, not the full metadata pointer and group member state. It's sufficient for the hackathon (the mint authority is the strongest single signal) and maintains AlpenSign's zero-dependency architecture.
 
 ```javascript
 // After wallet.authorize() returns the wallet address

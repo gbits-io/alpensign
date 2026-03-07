@@ -127,7 +127,7 @@ The bank computes the same SHA-256 hash from the original payment request. If it
 | On-chain posting | **Solana Memo Program** | Payment hash anchored to blockchain |
 | Client auth | **WebAuthn / FIDO2** | Platform authenticator (secure element) |
 | Frontend | **Vanilla HTML/JS** | Zero dependencies, PWA-ready |
-| RPC | **Solana Devnet** (Helius for mainnet) | Stateless, replaceable relay |
+| RPC | **Helius** (mainnet + devnet) | Browser-compatible Solana RPC (public RPCs return 403) |
 
 ---
 
@@ -242,28 +242,32 @@ The live version runs at [alpensign.com](https://alpensign.com).
 
 ---
 
-## Current Status (v0.5.5)
+## Current Status (v0.7.0)
 
 ### What works
 
 - ✅ WebAuthn enrollment with platform authenticator (Seeker secure element)
 - ✅ MWA wallet connection via Seed Vault
-- ✅ Genesis Token verification — real mainnet check via [beeman's SGT indexer](https://github.com/beeman/solana-mobile-seeker-genesis-holders) (Layer 1)
+- ✅ Genesis Token verification — real mainnet on-chain Token-2022 check via Helius RPC (Layer 1)
 - ✅ Biometric-gated payment sealing
 - ✅ SHA-256 payment hash computation
-- ✅ On-chain posting via Solana Memo Program (devnet)
+- ✅ On-chain posting via Solana Memo Program (mainnet or devnet, configurable)
 - ✅ Transaction verification on Solana Explorer
 - ✅ Seal history with full details
+- ✅ Bank simulator with BroadcastChannel bridge and real wallet address sync
+- ✅ Challenge signing for bank pairing (WebAuthn over bank challenge string)
+- ✅ Mainnet/devnet network toggle in Settings
+- ✅ "Open Bank Portal" button launches bank simulator from AlpenSign
 - ✅ Graceful degradation on non-Seeker Android devices
 - ✅ Landing page with demo video, security comparison, and [llms.txt](https://alpensign.com/llms.txt)
 
 ### Known Limitations
 
-- ⚠️ **Memo privacy** — Current implementation posts readable payment data in the memo field. Fix in progress: post only the SHA-256 hash.
 - ⚠️ **Bank credential** — Layer 2 (SAS credential issuance) requires bank cooperation and is simulated for the hackathon.
-- ⚠️ **Payment delivery** — Seal requests are triggered via a "Simulate" button. Production delivery via deep link, push notification, or QR code is planned.
-- ⚠️ **Devnet only** — All transactions go to Solana devnet. Mainnet migration planned after SAS integration and bank pilot.
+- ⚠️ **Payment delivery** — Seal requests arrive via BroadcastChannel from bank simulator. Production delivery via deep link, push notification, or QR code is planned.
+- ⚠️ **Helius dependency** — Public Solana RPCs block browser requests (403). Helius API key required in `config.js`. Free tier is sufficient.
 - ⚠️ **Seal history** — Stored in `localStorage`. Lost on browser data clear or device reset.
+- ⚠️ **`.skr` resolution** — Bank simulator uses AlpenSign's wallet address (via localStorage), not on-chain ANS domain lookup.
 
 ---
 
@@ -271,8 +275,8 @@ The live version runs at [alpensign.com](https://alpensign.com).
 
 | Phase | Focus | Key Items |
 |---|---|---|
-| **P0 — Hackathon** | Ship the demo | ~~Genesis Token verification~~ ✓, Memo privacy fix, dApp Store submission, demo video |
-| **P1 — Complete story** | Both sides of the flow | Bank simulator, SAS migration, pitch deck, partner outreach |
+| **P0 — Hackathon** | Ship the demo | ~~Genesis Token verification~~ ✓, ~~Memo privacy fix~~ ✓, ~~Bank simulator~~ ✓, ~~Helius RPC~~ ✓, ~~Network toggle~~ ✓, dApp Store submission, demo video |
+| **P1 — Complete story** | Both sides of the flow | SAS migration, `.skr` on-chain resolution, pitch deck, partner outreach |
 | **P2 — Real product** | Production foundation | AlpenSign SDK, Securosys HSM, native Android app, credential recovery, mainnet |
 | **P3 — Market expansion** | Adjacent use cases | Visa 3D-Secure (Netcetera ACS), hardware wallet support, EU/UK markets |
 

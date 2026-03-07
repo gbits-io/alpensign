@@ -234,15 +234,16 @@ Deploy alongside the app for field debugging. The bare `transact()` test isolati
 - MWA authorization with Seed Vault hardware
 - Real Solana wallet address from Seed Vault
 - Memo transaction signed by Seed Vault private key
-- Transaction posted to Solana devnet
+- Transaction posted to Solana (mainnet or devnet via Helius RPC)
 - Explorer link to real on-chain transaction
+- Genesis Token verification via direct on-chain Token-2022 check (Helius mainnet RPC)
 
 ### What's Simulated
 
-- Genesis Token verification during enrollment
 - SAS credential issuance by bank
 - Client NFT minting
 - Bank confirmation flow
+- `.skr` domain → address resolution (uses real address from AlpenSign, not on-chain ANS lookup)
 
 ### Key Dependencies
 
@@ -251,7 +252,7 @@ Deploy alongside the app for field debugging. The bare `transact()` test isolati
 | Solana web3.js | unpkg IIFE `@1.98.0` | Global `solanaWeb3` object |
 | MWA protocol | esm.sh ESM `@2.2.5` | Preloaded to `window.__mwaTransact` |
 | WebAuthn | Browser native | Platform authenticator (Seeker secure element) |
-| Solana RPC | `api.devnet.solana.com` | Read-only: blockhash, balance, confirmation |
+| Solana RPC | Helius (`mainnet.helius-rpc.com` / `devnet.helius-rpc.com`) | Blockhash, balance, confirmation, SGT verification. Public RPCs return 403 from browsers. |
 
 ### State Schema
 
