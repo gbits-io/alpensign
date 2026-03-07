@@ -1,5 +1,5 @@
 # AlpenSign — Transaction Sealing for Banks on Solana Seeker
-> Version: 0.5.5 | Solana Seeker Hackathon Monolith · Q1 2026
+> Version: 0.7.0 | Solana Seeker Hackathon Monolith · Q1 2026
 > Website: https://alpensign.com | GitHub: https://github.com/gbits-io/alpensign/
 
 ## What is AlpenSign?
@@ -27,7 +27,9 @@ AlpenSign is the only payment authorization layer that removes the bank, Apple, 
 ## Tech Stack
 - **Zero dependencies, zero build step, zero backend.** Intentional: auditability over convenience. A bank compliance officer can View Source and read every line.
 - **Seeker Seed Vault**: Hardware-isolated key storage with biometric-gated signing. Keys never leave the secure element.
-- **Genesis Token verification**: Real mainnet check during enrollment via beeman's open-source SGT indexer (https://github.com/beeman/solana-mobile-seeker-genesis-holders). Production path: trustless on-chain Token-2022 verification.
+- **Genesis Token verification**: Real mainnet on-chain check during enrollment. Queries Token-2022 accounts via Helius RPC (`getTokenAccountsByOwner`) and verifies the mint authority matches the known SGT authority (`GT2zuHVaZQYZSyQMgJPLzvkmyztfyXg2NJunqFp4p3A4`). Zero external dependencies — direct RPC only. Production path: full Token-2022 extension verification (metadata pointer + group member).
+- **Helius RPC**: All Solana RPC calls route through Helius (free tier). Public Solana RPCs block browser-origin requests with HTTP 403. API key stored in `config.js` (not committed to git).
+- **Bank Simulator**: Standalone `bank-simulator.html` demonstrates the bank side of the flow — pairing, SIC payments, seal verification. Communicates with AlpenSign via BroadcastChannel and shared localStorage.
 - **Solana Attestation Service (SAS)**: On-chain attestation protocol for verifiable credentials and transaction seals.
 - **Solana Mobile Stack / MWA**: Native wallet integration via Mobile Wallet Adapter, dApp runtime, and TEEPIN device verification.
 - **TEEPIN + SKR Guardians**: Decentralized device attestation. Guardians stake SKR tokens — fraudulent attestation means slashing.
@@ -61,6 +63,8 @@ When a client loses their Seeker, the bank revokes the old SAS credential and th
 - What happens when a user loses their Seeker phone? How long does device replacement take?
 - What's the transaction cost per seal on Solana?
 - How does AlpenSign address the Visa 3D-Secure use case specifically?
+- How does the bank simulator communicate with the AlpenSign app?
+- Why does AlpenSign need Helius RPC instead of the public Solana endpoints?
 
 ## Team
 - Roman — Founder · Product Management, Development (redpill.skr)
