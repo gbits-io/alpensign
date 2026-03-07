@@ -29,7 +29,7 @@ const APP_IDENTITY = {
 // Set your key in config.js (not committed to git).
 const HELIUS_API_KEY = (typeof ALPENSIGN_CONFIG !== 'undefined' && ALPENSIGN_CONFIG.HELIUS_API_KEY)
   ? ALPENSIGN_CONFIG.HELIUS_API_KEY
-  : 'cf479a6e-8fe8-4363-ab5b-8898913fbaff';
+  : 'YOUR_HELIUS_API_KEY';
 
 const NETWORKS = {
   mainnet: {
@@ -353,16 +353,6 @@ async function sgtRpcCall(method, params) {
 }
 
 async function verifySGT(walletAddress) {
-  // ── TEMPORARY WORKAROUND ──────────────────────────────────────────
-  // The public Solana RPC blocks getTokenAccountsByOwner from browsers (403).
-  // Until a Helius API key is configured, skip RPC verification on Seeker
-  // devices and trust the hardware identity (MWA + Seed Vault = real Seeker).
-  // TODO: Remove this bypass once HELIUS_API_KEY is set.
-  if (HELIUS_API_KEY === 'YOUR_HELIUS_API_KEY' && isSeekerDevice()) {
-    console.log('[SGT] ⚠ Seeker detected, Helius key not configured — assuming SGT present (temporary bypass)');
-    return 'pending-verification*';
-  }
-  // ── END WORKAROUND ────────────────────────────────────────────────
 
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
@@ -838,8 +828,7 @@ async function updateSettingsView() {
   // Genesis Token status
   const sgtEl = $('settingsGenesis');
   if (state.genesisVerified && state.genesisTokenMint) {
-    const isBypass = state.genesisTokenMint.startsWith('pending-verification');
-    const short = isBypass ? 'Seeker verified*' : state.genesisTokenMint.substring(0, 8) + '...' + state.genesisTokenMint.slice(-4);
+    const short = state.genesisTokenMint.substring(0, 8) + '...' + state.genesisTokenMint.slice(-4);
     sgtEl.textContent = `Verified ✓ ${short}`;
     sgtEl.style.color = 'var(--purple)';
   } else if (state.walletAddr && isSeekerDevice()) {
@@ -915,8 +904,7 @@ function adaptEnrollmentForDevice() {
     cred.style.color = 'var(--accent-light)';
     tokenLabel.textContent = 'Genesis Token';
     if (state.genesisVerified && state.genesisTokenMint) {
-      const isBypass = state.genesisTokenMint.startsWith('pending-verification');
-      const short = isBypass ? 'Seeker verified*' : state.genesisTokenMint.substring(0, 8) + '...' + state.genesisTokenMint.slice(-4);
+      const short = state.genesisTokenMint.substring(0, 8) + '...' + state.genesisTokenMint.slice(-4);
       tokenValue.textContent = `Verified ✓ ${short}`;
       tokenValue.style.color = 'var(--purple)';
     } else {
@@ -1081,14 +1069,20 @@ $('btnConnectWallet').addEventListener('click', () => {  // NOT async!
     statusEl.innerHTML = `<span style="color: var(--accent-light);">✓ Wallet connected: ${walletBase58.substring(0, 8)}...${walletBase58.slice(-4)}</span>`;
     console.log('[MWA] ✅ Wallet:', walletBase58);
 
+    // Notify bank simulator of real wallet address (for .skr resolution)
+    bankChannel.postMessage({
+      type: 'wallet-connected',
+      walletAddress: walletBase58,
+      seekerId: state.seekerId || null,
+    });
+
     // ---- Real Genesis Token verification (mainnet RPC) ----
     statusEl.innerHTML += '<br><span style="color: var(--text-dim);">Verifying Genesis Token on mainnet...</span>';
     const sgtMint = await verifySGT(walletBase58);
     if (sgtMint) {
       state.genesisVerified = true;
       state.genesisTokenMint = sgtMint;
-      const isBypass = sgtMint.startsWith('pending-verification');
-      const shortMint = isBypass ? 'Seeker verified*' : sgtMint.substring(0, 6) + '...' + sgtMint.slice(-4);
+      const shortMint = sgtMint.substring(0, 6) + '...' + sgtMint.slice(-4);
       statusEl.innerHTML = `<span style="color: var(--accent-light);">✓ Wallet connected</span>`
         + `<br><span style="color: var(--purple);">✓ Genesis Token verified (${shortMint})</span>`;
     } else {

@@ -1576,9 +1576,25 @@ function updatePaymentView() {
 // ═══ BROADCASTCHANNEL — AlpenSign Bridge ═══
 const alpensignChannel = new BroadcastChannel('alpensign-bank-bridge');
 
+// Real wallet address received from AlpenSign (overrides simulated addresses)
+let realWalletAddress = null;
+
 alpensignChannel.onmessage = (event) => {
   const msg = event.data;
   console.log('[BankBridge] Received:', msg.type);
+
+  if (msg.type === 'wallet-connected') {
+    realWalletAddress = msg.walletAddress;
+    console.log('[BankBridge] Real wallet address from AlpenSign:', realWalletAddress);
+    // If .skr was already resolved, update the displayed address
+    if (state.solanaAddress && realWalletAddress) {
+      state.solanaAddress = realWalletAddress;
+      const el = document.getElementById('resolved-address');
+      if (el) el.textContent = realWalletAddress;
+      const attestEl = document.getElementById('attest-wallet');
+      if (attestEl) attestEl.textContent = realWalletAddress;
+    }
+  }
 
   if (msg.type === 'seal-complete') {
     // AlpenSign completed a seal — update payment UI
@@ -1779,7 +1795,7 @@ async function resolveSeekerId() {
 
   await sleep(1500);
 
-  const address = SIMULATED_ADDRESSES[val] || generateAddress();
+  const address = realWalletAddress || SIMULATED_ADDRESSES[val] || generateAddress();
   state.seekerId = val;
   state.solanaAddress = address;
 
