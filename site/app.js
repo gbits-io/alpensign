@@ -339,7 +339,7 @@ async function sgtRpcCall(method, params) {
 async function verifySGT(walletAddress) {
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      console.log(`[SGT] Verifying Genesis Token on mainnet for: ${walletAddress} (attempt ${attempt})`);
+      alert(`[SGT 1/5] Starting verification\nWallet: ${walletAddress}\nAttempt: ${attempt}\nRPC: ${SGT_MAINNET_RPC}`);
 
       // 1. Fetch all Token-2022 token accounts owned by this wallet
       const result = await sgtRpcCall('getTokenAccountsByOwner', [
@@ -349,10 +349,11 @@ async function verifySGT(walletAddress) {
       ]);
 
       const accounts = result?.value || [];
-      console.log(`[SGT] Found ${accounts.length} Token-2022 account(s)`);
+      alert(`[SGT 2/5] getTokenAccountsByOwner returned\n${accounts.length} Token-2022 account(s)\n\nRaw keys: ${accounts.map(a => a.pubkey).join('\n')}`);
+
       if (accounts.length === 0) {
-        console.log('[SGT] No Token-2022 accounts — wallet may not hold any Token Extensions tokens');
         if (attempt < 2) { await new Promise(r => setTimeout(r, 2000)); continue; }
+        alert('[SGT] RESULT: No Token-2022 accounts found after 2 attempts');
         return null;
       }
 
@@ -360,57 +361,57 @@ async function verifySGT(walletAddress) {
       const mints = accounts
         .map(a => a.account?.data?.parsed?.info?.mint)
         .filter(Boolean);
-      console.log('[SGT] Mints found:', mints);
+      alert(`[SGT 3/5] Extracted ${mints.length} mint address(es):\n${mints.join('\n')}`);
 
-      // 3. For each mint, fetch its account info (jsonParsed) and check mintAuthority
+      // 3. For each mint, fetch its account info and check mintAuthority
       for (const mintAddr of mints) {
         try {
           const mintResult = await sgtRpcCall('getAccountInfo', [
             mintAddr, { encoding: 'jsonParsed' },
           ]);
           const parsed = mintResult?.value?.data?.parsed;
+          const foundAuthority = parsed?.info?.mintAuthority || '(not in parsed response)';
+
+          alert(`[SGT 4/5] Mint: ${mintAddr}\n\nparsed.type: ${parsed?.type}\nparsed.info.mintAuthority:\n${foundAuthority}\n\nExpected:\n${SGT_MINT_AUTHORITY}\n\nMatch: ${foundAuthority === SGT_MINT_AUTHORITY}`);
 
           if (parsed?.info?.mintAuthority === SGT_MINT_AUTHORITY) {
-            console.log(`[SGT] ✅ Verified SGT via parsed mintAuthority. Mint: ${mintAddr}`);
+            alert(`[SGT 5/5] ✅ VERIFIED! Mint: ${mintAddr}`);
             return mintAddr;
           }
 
-          // Fallback: if jsonParsed doesn't expose mintAuthority (some RPC nodes),
-          // try raw base64 decoding
+          // Fallback: raw base64 decoding
           if (!parsed?.info?.mintAuthority) {
-            console.log(`[SGT] jsonParsed did not return mintAuthority for ${mintAddr}, trying base64...`);
+            alert(`[SGT 4b] jsonParsed missing mintAuthority, trying base64 for ${mintAddr}...`);
             const rawResult = await sgtRpcCall('getAccountInfo', [
               mintAddr, { encoding: 'base64' },
             ]);
             const b64 = rawResult?.value?.data?.[0];
-            if (!b64) continue;
+            if (!b64) { alert(`[SGT 4b] No base64 data for ${mintAddr}`); continue; }
 
             const raw = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
-            // Token-2022 Mint layout: bytes 0-3 = COption<Pubkey> tag (u32 LE)
-            // If tag == 1 → bytes 4-35 = mintAuthority pubkey (32 bytes)
             const tag = raw[0] | (raw[1] << 8) | (raw[2] << 16) | (raw[3] << 24);
-            if (tag !== 1) continue;
+            if (tag !== 1) { alert(`[SGT 4b] COption tag = ${tag} (not 1), skipping`); continue; }
 
             const authorityBase58 = base58encode(raw.slice(4, 36));
-            console.log(`[SGT] Raw mintAuthority for ${mintAddr}: ${authorityBase58}`);
+            alert(`[SGT 4b] Raw mintAuthority:\n${authorityBase58}\n\nExpected:\n${SGT_MINT_AUTHORITY}\n\nMatch: ${authorityBase58 === SGT_MINT_AUTHORITY}`);
 
             if (authorityBase58 === SGT_MINT_AUTHORITY) {
-              console.log(`[SGT] ✅ Verified SGT via raw bytes. Mint: ${mintAddr}`);
+              alert(`[SGT 5/5] ✅ VERIFIED via raw bytes! Mint: ${mintAddr}`);
               return mintAddr;
             }
           }
         } catch (mintErr) {
-          console.warn(`[SGT] Error checking mint ${mintAddr}:`, mintErr.message);
+          alert(`[SGT] Error checking mint ${mintAddr}:\n${mintErr.message}`);
           continue;
         }
       }
 
-      console.log('[SGT] No matching SGT mint authority found among', mints.length, 'mint(s)');
+      alert(`[SGT] RESULT: No matching SGT among ${mints.length} mint(s)`);
       return null;
     } catch (e) {
-      console.warn(`[SGT] Attempt ${attempt} failed:`, e.message);
+      alert(`[SGT] Attempt ${attempt} FAILED:\n${e.message}`);
       if (attempt < 2) { await new Promise(r => setTimeout(r, 2000)); continue; }
-      return null; // Fail open — allow enrollment with warning
+      return null;
     }
   }
   return null;
