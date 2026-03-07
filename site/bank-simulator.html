@@ -1788,14 +1788,19 @@ async function resolveSeekerId() {
   errEl.style.display = 'none';
   input.value = val;
 
-  // Simulate resolution
+  // Resolve .skr → Solana address
   const btn = document.getElementById('btn-resolve');
   btn.disabled = true;
   btn.innerHTML = '<div class="spinner"></div> Resolving on Solana…';
 
-  await sleep(1500);
-
+  // Use real wallet address from AlpenSign bridge if available,
+  // otherwise fall back to simulated addresses for offline demo.
   const address = realWalletAddress || SIMULATED_ADDRESSES[val] || generateAddress();
+  const isRealAddress = !!realWalletAddress;
+
+  // Brief delay for visual feedback (real RPC would take ~500ms)
+  await sleep(isRealAddress ? 800 : 1500);
+
   state.seekerId = val;
   state.solanaAddress = address;
 
