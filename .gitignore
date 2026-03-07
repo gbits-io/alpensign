@@ -2,3 +2,7 @@
 
 # Ignore the entire private documentation folder
 internal_docs/
+
+# Ignore the file with the Helius API Key
+config.js
+

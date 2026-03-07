@@ -23,17 +23,29 @@ const APP_IDENTITY = {
   icon: './images/alpensign_logo_small_dark.png',
 };
 
+// ---- Helius RPC Config ----
+// The public Solana RPCs (api.mainnet-beta.solana.com, api.devnet.solana.com)
+// block browser-origin requests with 403. A Helius key (free tier) is required.
+// Set your key in config.js (not committed to git).
+const HELIUS_API_KEY = (typeof ALPENSIGN_CONFIG !== 'undefined' && ALPENSIGN_CONFIG.HELIUS_API_KEY)
+  ? ALPENSIGN_CONFIG.HELIUS_API_KEY
+  : 'cf479a6e-8fe8-4363-ab5b-8898913fbaff';
+
 const NETWORKS = {
   mainnet: {
     label: 'Mainnet',
     chain: 'solana:mainnet',
-    rpc: 'https://api.mainnet-beta.solana.com',
+    rpc: HELIUS_API_KEY !== 'YOUR_HELIUS_API_KEY'
+      ? `https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`
+      : 'https://api.mainnet-beta.solana.com',  // fallback (may 403 from browser)
     explorerSuffix: '',
   },
   devnet: {
     label: 'Devnet',
     chain: 'solana:devnet',
-    rpc: 'https://api.devnet.solana.com',
+    rpc: HELIUS_API_KEY !== 'YOUR_HELIUS_API_KEY'
+      ? `https://devnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`
+      : 'https://api.devnet.solana.com',  // fallback (may 403 from browser)
     explorerSuffix: '?cluster=devnet',
   },
 };
@@ -322,11 +334,11 @@ function isWalletWebView() {
 
 const SGT_MINT_AUTHORITY = 'GT2zuHVaZQYZSyQMgJPLzvkmyztfyXg2NJunqFp4p3A4';
 const TOKEN_2022_PROGRAM = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
-// Helius mainnet RPC — required because the public Solana RPC blocks
-// getTokenAccountsByOwner from browser origins (403).
-// Free tier: https://dev.helius.xyz — replace with your own key.
-const HELIUS_API_KEY = 'YOUR_HELIUS_API_KEY';  // TODO: replace before deploying
-const SGT_MAINNET_RPC = `https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`;
+// SGT verification always uses mainnet (Genesis Token lives on mainnet).
+// Reuses HELIUS_API_KEY declared at top of file.
+const SGT_MAINNET_RPC = HELIUS_API_KEY !== 'YOUR_HELIUS_API_KEY'
+  ? `https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`
+  : 'https://api.mainnet-beta.solana.com';
 
 async function sgtRpcCall(method, params) {
   const res = await fetch(SGT_MAINNET_RPC, {
