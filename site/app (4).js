@@ -32,7 +32,7 @@ const NETWORKS = {
   },
   devnet: {
     label: 'Devnet',
-    chain: SOLANA_CHAIN(),
+    chain: 'solana:devnet',
     rpc: 'https://api.devnet.solana.com',
     explorerSuffix: '?cluster=devnet',
   },
