@@ -313,36 +313,98 @@ function isWalletWebView() {
 }
 
 // ---- Genesis Token (SGT) Verification ----
-// Real on-chain check via beeman's open-source SGT indexer
-// https://github.com/beeman/solana-mobile-seeker-genesis-holders
-const SGT_API = 'https://sgt-api.beeman.dev/api/holders';
+// Direct on-chain check via mainnet RPC (Token-2022 / Token Extensions).
+// Reference: https://docs.solanamobile.com/marketing/engaging-seeker-users
+//
+// Strategy: getTokenAccountsByOwner (Token-2022 program) → for each mint,
+// fetch raw account data and verify mintAuthority matches the known SGT authority.
+// No external indexer dependency — only standard Solana RPC.
+
+const SGT_MINT_AUTHORITY = 'GT2zuHVaZQYZSyQMgJPLzvkmyztfyXg2NJunqFp4p3A4';
+const TOKEN_2022_PROGRAM = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
+const SGT_MAINNET_RPC = 'https://api.mainnet-beta.solana.com';
 
 async function verifySGT(walletAddress) {
-  // Try up to 2 times with a short delay between retries
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      console.log(`[SGT] Verifying Genesis Token for: ${walletAddress} (attempt ${attempt})`);
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000); // 8s timeout per attempt
+      console.log(`[SGT] Verifying Genesis Token on mainnet for: ${walletAddress} (attempt ${attempt})`);
 
-      const res = await fetch(`${SGT_API}/${walletAddress}`, {
+      // 1. Fetch all Token-2022 accounts owned by this wallet (mainnet)
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 12000);
+
+      const res = await fetch(SGT_MAINNET_RPC, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0', id: 1,
+          method: 'getTokenAccountsByOwner',
+          params: [
+            walletAddress,
+            { programId: TOKEN_2022_PROGRAM },
+            { encoding: 'jsonParsed' },
+          ],
+        }),
         signal: controller.signal,
       });
       clearTimeout(timeout);
 
-      if (res.status === 404) {
-        console.log('[SGT] Wallet is not an SGT holder (404)');
-        return null;
-      }
       if (!res.ok) {
-        console.warn('[SGT] API returned status:', res.status);
+        console.warn('[SGT] RPC HTTP error:', res.status);
         if (attempt < 2) { await new Promise(r => setTimeout(r, 1500)); continue; }
         return null;
       }
-      const data = await res.json();
-      const mint = data.mints?.[0]?.mint || null;
-      if (mint) console.log('[SGT] ✅ Verified. Mint:', mint);
-      return mint;
+      const rpcResult = await res.json();
+      if (rpcResult.error) {
+        console.warn('[SGT] RPC error:', rpcResult.error.message);
+        if (attempt < 2) { await new Promise(r => setTimeout(r, 1500)); continue; }
+        return null;
+      }
+
+      const accounts = rpcResult.result?.value || [];
+      console.log(`[SGT] Found ${accounts.length} Token-2022 account(s)`);
+      if (accounts.length === 0) return null;
+
+      // 2. Extract mint addresses
+      const mints = accounts
+        .map(a => a.account?.data?.parsed?.info?.mint)
+        .filter(Boolean);
+      console.log(`[SGT] Mint addresses to check:`, mints);
+
+      // 3. For each mint, fetch account info and check mintAuthority
+      //    Token-2022 Mint layout: bytes 0-3 = COption<Pubkey> tag for mintAuthority
+      //    If tag (u32 LE) == 1 → bytes 4-35 = mintAuthority pubkey (32 bytes)
+      for (const mintAddr of mints) {
+        const mintRes = await fetch(SGT_MAINNET_RPC, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0', id: 2,
+            method: 'getAccountInfo',
+            params: [mintAddr, { encoding: 'base64' }],
+          }),
+        });
+        const mintData = await mintRes.json();
+        const b64 = mintData.result?.value?.data?.[0];
+        if (!b64) continue;
+
+        const raw = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+        // COption tag at offset 0 (4 bytes LE): 1 = Some
+        const hasAuthority = (raw[0] | (raw[1] << 8) | (raw[2] << 16) | (raw[3] << 24)) === 1;
+        if (!hasAuthority) continue;
+
+        // Extract 32-byte pubkey at offset 4
+        const authorityBytes = raw.slice(4, 36);
+        const authorityBase58 = base58encode(authorityBytes);
+
+        if (authorityBase58 === SGT_MINT_AUTHORITY) {
+          console.log(`[SGT] ✅ Verified SGT. Mint: ${mintAddr}, Authority: ${authorityBase58}`);
+          return mintAddr;
+        }
+      }
+
+      console.log('[SGT] No matching SGT mint authority found');
+      return null;
     } catch (e) {
       console.warn(`[SGT] Attempt ${attempt} failed:`, e.message);
       if (attempt < 2) { await new Promise(r => setTimeout(r, 1500)); continue; }
@@ -990,7 +1052,7 @@ $('btnConnectWallet').addEventListener('click', () => {  // NOT async!
     statusEl.innerHTML = `<span style="color: var(--accent-light);">✓ Wallet connected: ${walletBase58.substring(0, 8)}...${walletBase58.slice(-4)}</span>`;
     console.log('[MWA] ✅ Wallet:', walletBase58);
 
-    // ---- Real Genesis Token verification (mainnet) ----
+    // ---- Real Genesis Token verification (mainnet RPC) ----
     statusEl.innerHTML += '<br><span style="color: var(--text-dim);">Verifying Genesis Token on mainnet...</span>';
     const sgtMint = await verifySGT(walletBase58);
     if (sgtMint) {
