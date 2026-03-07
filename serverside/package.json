@@ -1,0 +1,13 @@
+{
+  "name": "alpensign-rpc",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Helius RPC proxy for AlpenSign & Gbits (Cloudflare Worker)",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^3"
+  }
+}

@@ -1,0 +1,11 @@
+name = "alpensign-rpc"
+main = "src/index.mjs"
+compatibility_date = "2024-12-01"
+
+# Secrets (set via `wrangler secret put HELIUS_API_KEY`):
+# - HELIUS_API_KEY
+
+# Optional: bind KV namespace for future ISO 20022 message storage
+# [[kv_namespaces]]
+# binding = "ISO_STORE"
+# id = "your-kv-namespace-id"
