@@ -324,6 +324,38 @@ function isWalletWebView() {
   return false;
 }
 
+// ---- TWA / Standalone PWA Detection ----
+// PWABuilder TWA wraps the site in a Chrome Custom Tab process.
+// MWA's localhost WebSocket connection fails in this context because
+// the TWA process cannot connect to the Seed Vault's local WebSocket
+// server (intent dispatch works differently, and/or process isolation
+// blocks ws://localhost). We detect this and offer a Chrome fallback.
+function isStandalonePWA() {
+  // CSS display-mode: standalone is set for installed PWAs and TWAs
+  if (window.matchMedia('(display-mode: standalone)').matches) return true;
+  // iOS standalone mode
+  if (navigator.standalone === true) return true;
+  // Android TWA: document.referrer is set to the TWA's origin
+  // and the "wv" flag may appear (though not always)
+  if (document.referrer.includes('android-app://')) return true;
+  return false;
+}
+
+// Open the current page in Chrome browser (escaping the TWA shell).
+// This allows MWA to work properly since Chrome can dispatch intents
+// and connect to localhost WebSockets without TWA restrictions.
+function openInChromeBrowser() {
+  // Intent URI to force Chrome specifically
+  const url = window.location.href;
+  // Try Chrome intent first; falls back to default browser
+  const chromeIntent = `intent://${url.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end`;
+  window.location.href = chromeIntent;
+  // Fallback: if intent doesn't work after 2s, try window.open
+  setTimeout(() => {
+    window.open(url, '_blank');
+  }, 2000);
+}
+
 // ---- Genesis Token (SGT) Verification ----
 // Direct on-chain check via mainnet RPC (Token-2022 / Token Extensions).
 // Reference: https://docs.solanamobile.com/marketing/engaging-seeker-users
@@ -1136,10 +1168,33 @@ $('btnConnectWallet').addEventListener('click', () => {  // NOT async!
   .catch((err) => {
     console.error('[MWA] Authorize failed:', err);
     const msg = err.message || String(err);
+    const isWebSocketFail = /websocket|ws:\/\/localhost|failed to connect/i.test(msg);
+
     if (msg.includes('WALLET_NOT_FOUND') || msg.includes('not found')) {
       statusEl.textContent = '❌ No MWA wallet found. Check Seed Vault is enabled.';
     } else if (msg.includes('USER_DECLINED') || msg.includes('declined')) {
       statusEl.textContent = '❌ Authorization was declined in the wallet.';
+    } else if (isWebSocketFail && isStandalonePWA()) {
+      // TWA/Standalone PWA: MWA's localhost WebSocket is blocked.
+      // Offer to open in Chrome browser where MWA works natively.
+      console.warn('[MWA] WebSocket failed in TWA/standalone — offering Chrome fallback');
+      statusEl.innerHTML = '<span style="color: var(--amber);">⚠ Wallet connection blocked by app shell</span>'
+        + '<br><span style="color: var(--text-secondary); font-size: 0.82rem;">'
+        + 'The installed app cannot connect to Seed Vault directly. '
+        + 'Please open AlpenSign in <b>Chrome browser</b> to connect your wallet, then return here.</span>';
+
+      // Show a button to open in Chrome
+      const chromeBtn = document.createElement('button');
+      chromeBtn.className = 'btn btn-outline';
+      chromeBtn.style.marginTop = '12px';
+      chromeBtn.innerHTML = '🌐 Open in Chrome Browser';
+      chromeBtn.addEventListener('click', openInChromeBrowser);
+
+      // Insert after status
+      const existingChromeBtn = $('btnOpenInChrome');
+      if (existingChromeBtn) existingChromeBtn.remove();
+      chromeBtn.id = 'btnOpenInChrome';
+      statusEl.parentElement.insertBefore(chromeBtn, statusEl.nextSibling);
     } else {
       statusEl.textContent = '❌ Connection failed: ' + msg;
     }
@@ -1472,6 +1527,10 @@ $('btnSeal').addEventListener('click', async () => {
           return txId;
         }).catch((solanaErr) => {
           failReason = solanaErr.message || String(solanaErr);
+          // Detect TWA WebSocket failure and provide clearer message
+          if (/websocket|ws:\/\/localhost|failed to connect/i.test(failReason) && isStandalonePWA()) {
+            failReason = 'App shell blocks Seed Vault connection — open in Chrome for on-chain sealing';
+          }
           console.warn('Solana posting failed:', failReason);
           return null;
         });
