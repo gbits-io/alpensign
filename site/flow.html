@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AlpenSign — Interaction Flow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&family=Source+Sans+3:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-primary: #faf9f6;
+    --bg-secondary: #f0eee9;
+    --bg-card: #ffffff;
+    --bg-card-hover: #f7f6f2;
+    --accent: #1a5f3a;
+    --accent-light: #267a4d;
+    --accent-vivid: #22c55e;
+    --accent-dim: rgba(26, 95, 58, 0.08);
+    --accent-glow: rgba(26, 95, 58, 0.04);
+    --alpine-blue: #2c6fbb;
+    --alpine-dim: rgba(44, 111, 187, 0.08);
+    --amber: #f59e0b;
+    --amber-dim: rgba(245, 158, 11, 0.10);
+    --text-primary: #1c1c1a;
+    --text-secondary: #555550;
+    --text-dim: #8a8a82;
+    --border: rgba(26, 95, 58, 0.18);
+    --border-subtle: rgba(0, 0, 0, 0.08);
+    --seal-gradient: linear-gradient(135deg, #1a5f3a 0%, #22c55e 100%);
+    --warm-red: #b84233;
+    --lane-alpen: var(--accent);
+    --lane-alpen-bg: rgba(26, 95, 58, 0.04);
+    --lane-alpen-border: rgba(26, 95, 58, 0.15);
+    --lane-bank: var(--alpine-blue);
+    --lane-bank-bg: rgba(44, 111, 187, 0.04);
+    --lane-bank-border: rgba(44, 111, 187, 0.15);
+    --spine-width: 3px;
+    --node-size: 14px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Source Sans 3', 'Segoe UI', sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 1rem;
+    line-height: 1.65;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Paper texture */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.02'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ---- Header ---- */
+  .flow-header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(16px);
+    background: rgba(250, 249, 246, 0.92);
+    border-bottom: 1px solid var(--border-subtle);
+    padding: 1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .flow-header a {
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 0.82rem;
+    font-weight: 500;
+    transition: color 0.3s;
+  }
+  .flow-header a:hover { color: var(--accent); }
+
+  .flow-header h1 {
+    font-family: 'Source Serif 4', Georgia, serif;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: -0.01em;
+  }
+
+  /* ---- Page intro ---- */
+  .flow-intro {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 3rem 1.5rem 1.5rem;
+    text-align: center;
+    animation: fadeIn 0.8s ease both;
+  }
+
+  .flow-intro h2 {
+    font-family: 'Source Serif 4', Georgia, serif;
+    font-size: clamp(1.5rem, 4vw, 2.2rem);
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--text-primary);
+    margin-bottom: 0.8rem;
+  }
+
+  .flow-intro h2 em {
+    font-style: italic;
+    color: var(--accent);
+  }
+
+  .flow-intro p {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    max-width: 520px;
+    margin: 0 auto;
+    line-height: 1.7;
+  }
+
+  /* ---- Lane legend ---- */
+  .lane-legend {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    padding: 1.5rem 1.5rem 0.5rem;
+    animation: fadeIn 0.8s ease 0.2s both;
+  }
+
+  .lane-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .lane-legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+
+  .lane-legend-dot.alpen { background: var(--lane-alpen); }
+  .lane-legend-dot.bank { background: var(--lane-bank); }
+
+  /* ---- Flow container ---- */
+  .flow-timeline {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem 1rem 4rem;
+    position: relative;
+  }
+
+  /* Central spine */
+  .flow-timeline::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 2rem;
+    bottom: 4rem;
+    width: var(--spine-width);
+    transform: translateX(-50%);
+    background: linear-gradient(
+      to bottom,
+      var(--lane-alpen) 0%,
+      var(--lane-bank) 30%,
+      var(--lane-alpen) 50%,
+      var(--lane-bank) 70%,
+      var(--accent-vivid) 100%
+    );
+    opacity: 0.18;
+    border-radius: 2px;
+  }
+
+  /* ---- Phase divider ---- */
+  .flow-phase {
+    text-align: center;
+    padding: 2.5rem 0 1.5rem;
+    position: relative;
+    z-index: 2;
+    animation: fadeIn 0.6s ease both;
+  }
+
+  .flow-phase-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--text-dim);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
+    padding: 0.4rem 1.2rem;
+    border-radius: 100px;
+  }
+
+  .flow-phase-title {
+    font-family: 'Source Serif 4', Georgia, serif;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-top: 0.6rem;
+  }
+
+  /* ---- Flow step ---- */
+  .flow-step {
+    display: grid;
+    grid-template-columns: 1fr var(--node-size) 1fr;
+    gap: 0;
+    align-items: start;
+    padding: 0.8rem 0;
+    position: relative;
+    z-index: 2;
+  }
+
+  .flow-step.reveal {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+  }
+
+  .flow-step.reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Node on the spine */
+  .flow-node {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 1.2rem;
+  }
+
+  .flow-node-dot {
+    width: var(--node-size);
+    height: var(--node-size);
+    border-radius: 50%;
+    border: 2.5px solid;
+    background: var(--bg-primary);
+    position: relative;
+    z-index: 3;
+    flex-shrink: 0;
+  }
+
+  .flow-step.side-left .flow-node-dot {
+    border-color: var(--lane-alpen);
+  }
+
+  .flow-step.side-right .flow-node-dot {
+    border-color: var(--lane-bank);
+  }
+
+  .flow-step.side-both .flow-node-dot {
+    border-color: var(--amber);
+    background: var(--amber-dim);
+  }
+
+  /* Card positioning */
+  .flow-card-left,
+  .flow-card-right {
+    padding: 0 0.5rem;
+  }
+
+  .flow-card-left {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .flow-card-right {
+    display: flex;
+    justify-content: flex-start;
+  }
+
+  /* Empty lane placeholder */
+  .flow-step.side-left .flow-card-right,
+  .flow-step.side-right .flow-card-left {
+    visibility: hidden;
+  }
+
+  .flow-step.side-left .flow-card-right .flow-card,
+  .flow-step.side-right .flow-card-left .flow-card {
+    display: none;
+  }
+
+  /* ---- Card ---- */
+  .flow-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    padding: 1rem;
+    max-width: 340px;
+    width: 100%;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    transition: all 0.35s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .flow-card:hover {
+    box-shadow: 0 6px 20px rgba(0,0,0,0.06);
+    transform: translateY(-2px);
+  }
+
+  /* Top accent bar */
+  .flow-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2.5px;
+    border-radius: 10px 10px 0 0;
+  }
+
+  .side-left .flow-card::before {
+    background: var(--seal-gradient);
+  }
+
+  .side-right .flow-card::before {
+    background: linear-gradient(135deg, var(--alpine-blue) 0%, #5b9bd5 100%);
+  }
+
+  .side-both .flow-card-left .flow-card::before {
+    background: var(--seal-gradient);
+  }
+
+  .side-both .flow-card-right .flow-card::before {
+    background: linear-gradient(135deg, var(--alpine-blue) 0%, #5b9bd5 100%);
+  }
+
+  /* Card content */
+  .flow-card-step {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 0.35rem;
+  }
+
+  .side-left .flow-card-step { color: var(--lane-alpen); }
+  .side-right .flow-card-step { color: var(--lane-bank); }
+  .side-both .flow-card-left .flow-card-step { color: var(--lane-alpen); }
+  .side-both .flow-card-right .flow-card-step { color: var(--lane-bank); }
+
+  .flow-card h3 {
+    font-family: 'Source Serif 4', Georgia, serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.3rem;
+    line-height: 1.3;
+  }
+
+  .flow-card p {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 0.6rem;
+  }
+
+  /* Screenshot thumbnail */
+  .flow-screenshot {
+    width: 100%;
+    border-radius: 6px;
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-secondary);
+    cursor: pointer;
+    transition: opacity 0.3s, transform 0.3s;
+    display: block;
+  }
+
+  .flow-screenshot:hover {
+    opacity: 0.9;
+    transform: scale(1.01);
+  }
+
+  .flow-screenshot-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+    margin-top: 0.35rem;
+    display: block;
+  }
+
+  /* Arrow indicator between lanes */
+  .flow-arrow {
+    display: flex;
+    justify-content: center;
+    padding: 0.3rem 0;
+    position: relative;
+    z-index: 2;
+    animation: fadeIn 0.5s ease both;
+  }
+
+  .flow-arrow-line {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    background: var(--bg-secondary);
+    border: 1px dashed var(--border-subtle);
+    padding: 0.25rem 0.8rem;
+    border-radius: 100px;
+  }
+
+  .flow-arrow-line.to-right::after { content: '→'; }
+  .flow-arrow-line.to-left::after { content: '←'; }
+  .flow-arrow-line.bidir::after { content: '⇄'; }
+
+  /* ---- Both-sides step ---- */
+  .flow-step.side-both .flow-card-left,
+  .flow-step.side-both .flow-card-right {
+    visibility: visible;
+  }
+
+  .flow-step.side-both .flow-card-left .flow-card,
+  .flow-step.side-both .flow-card-right .flow-card {
+    display: block;
+  }
+
+  /* ---- Lightbox ---- */
+  .lightbox {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: rgba(28, 28, 26, 0.92);
+    backdrop-filter: blur(8px);
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+    cursor: zoom-out;
+  }
+
+  .lightbox.open {
+    display: flex;
+    animation: fadeIn 0.25s ease;
+  }
+
+  .lightbox img {
+    max-width: 90vw;
+    max-height: 90vh;
+    border-radius: 10px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+  }
+
+  .lightbox-close {
+    position: absolute;
+    top: 1.2rem;
+    right: 1.5rem;
+    color: #fff;
+    font-size: 1.5rem;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.3s;
+    background: none;
+    border: none;
+    font-family: 'Source Sans 3', sans-serif;
+  }
+
+  .lightbox-close:hover { opacity: 1; }
+
+  .lightbox-caption {
+    position: absolute;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    color: rgba(255,255,255,0.8);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.05em;
+    background: rgba(0,0,0,0.5);
+    padding: 0.4rem 1rem;
+    border-radius: 100px;
+    white-space: nowrap;
+  }
+
+  /* ---- End mark ---- */
+  .flow-end {
+    text-align: center;
+    padding: 3rem 0 2rem;
+    position: relative;
+    z-index: 2;
+  }
+
+  .flow-end-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--seal-gradient);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    margin-bottom: 0.8rem;
+    box-shadow: 0 4px 16px rgba(26, 95, 58, 0.25);
+  }
+
+  .flow-end p {
+    font-family: 'Source Serif 4', Georgia, serif;
+    font-size: 1rem;
+    color: var(--text-secondary);
+    font-style: italic;
+  }
+
+  /* ---- Footer ---- */
+  .flow-footer {
+    text-align: center;
+    padding: 2rem 1.5rem 3rem;
+    border-top: 1px solid var(--border-subtle);
+    max-width: 720px;
+    margin: 0 auto;
+  }
+
+  .flow-footer a {
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    transition: opacity 0.3s;
+  }
+
+  .flow-footer a:hover { opacity: 0.7; }
+
+  .flow-footer span {
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    display: block;
+    margin-top: 0.4rem;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  /* ---- Mobile layout ---- */
+  @media (max-width: 640px) {
+    .flow-step {
+      grid-template-columns: var(--node-size) 1fr;
+      gap: 0;
+    }
+
+    .flow-card-left {
+      display: none !important;
+    }
+
+    .flow-step.side-left .flow-card-right,
+    .flow-step.side-right .flow-card-right,
+    .flow-step.side-both .flow-card-right {
+      visibility: visible !important;
+    }
+
+    .flow-step.side-left .flow-card-right .flow-card,
+    .flow-step.side-both .flow-card-right .flow-card {
+      display: block !important;
+    }
+
+    /* For left-side cards on mobile, show them in the right column with AlpenSign styling */
+    .flow-step.side-left .flow-card-right .flow-card-mobile {
+      display: block;
+    }
+
+    .flow-card-right {
+      justify-content: flex-start;
+      padding-left: 0.8rem;
+    }
+
+    .flow-node {
+      padding-top: 1.2rem;
+    }
+
+    .flow-timeline::before {
+      left: 7px;
+      transform: none;
+    }
+
+    .flow-card {
+      max-width: 100%;
+    }
+
+    .flow-intro { padding: 2rem 1.2rem 1rem; }
+    .flow-timeline { padding: 1.5rem 0.5rem 3rem; }
+  }
+
+  /* ---- Desktop fine-tune ---- */
+  @media (min-width: 641px) {
+    .flow-card-mobile-only { display: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="flow-header">
+  <a href="./index.html">← AlpenSign</a>
+  <h1>Interaction Flow</h1>
+</header>
+
+<!-- Intro -->
+<div class="flow-intro">
+  <h2>How AlpenSign and the <em>Bank&nbsp;Simulator</em> interact</h2>
+  <p>
+    A step-by-step walkthrough of the transaction sealing process.
+    Each screenshot shows the actual app state at that moment.
+    Tap any image to enlarge.
+  </p>
+</div>
+
+<!-- Legend -->
+<div class="lane-legend">
+  <div class="lane-legend-item">
+    <div class="lane-legend-dot alpen"></div>
+    <span style="color: var(--lane-alpen);">AlpenSign</span>
+  </div>
+  <div class="lane-legend-item">
+    <div class="lane-legend-dot bank"></div>
+    <span style="color: var(--lane-bank);">Bank Simulator</span>
+  </div>
+</div>
+
+<!-- Timeline -->
+<div class="flow-timeline">
+
+  <!-- ======== PHASE 1: Setup & Connection ======== -->
+  <div class="flow-phase">
+    <div class="flow-phase-badge">Phase 1</div>
+    <div class="flow-phase-title">Setup &amp; Connection</div>
+  </div>
+
+  <!-- Step 1 — Bank: Initial state -->
+   <!--
+  <div class="flow-step side-right reveal">
+    <div class="flow-card-left"><div class="flow-card"></div></div>
+    <div class="flow-node"><div class="flow-node-dot"></div></div>
+    <div class="flow-card-right">
+      <div class="flow-card">
+        <div class="flow-card-step">Bank Simulator</div>
+        <h3>Bank launches — no device connected</h3>
+        <p>The bank's internal dashboard shows pending transactions but no authorized signing device is linked yet.</p>
+        <img class="flow-screenshot" src="./images/screenshots/banksim-01.png" alt="Bank Simulator initial state" onclick="openLightbox(this)" loading="lazy">
+        <span class="flow-screenshot-label">banksim-01</span>
+      </div>
+    </div>
+  </div>
+  -->
+
+  <!-- Step 2 — AlpenSign: Open app -->
+  <div class="flow-step side-left reveal">
+    <div class="flow-card-left">
+      <div class="flow-card">
+        <div class="flow-card-step">AlpenSign</div>
+        <h3>AlpenSign opens on Seeker</h3>
+        <p>The user launches AlpenSign PWA in Chrome on the Solana Seeker phone. The app checks for Genesis Token and Seed Vault availability.</p>
+        <img class="flow-screenshot" src="./images/screenshots/alpensign-01.png" alt="AlpenSign launch screen" onclick="openLightbox(this)" loading="lazy">
+        <span class="flow-screenshot-label">alpensign-01</span>
+      </div>
+    </div>
+    <div class="flow-node"><div class="flow-node-dot"></div></div>
+    <div class="flow-card-right">
+      <!-- Mobile fallback -->
+      <div class="flow-card flow-card-mobile-only">
+        <div class="flow-card-step" style="color: var(--lane-alpen);">AlpenSign</div>
+        <h3>AlpenSign opens on Seeker</h3>
+        <p>The user launches AlpenSign PWA in Chrome on the Solana Seeker phone. The app checks for Genesis Token and Seed Vault availability.</p>
+        <img class="flow-screenshot" src="./images/screenshots/alpensign-01.png" alt="AlpenSign launch screen" onclick="openLightbox(this)" loading="lazy">
+        <span class="flow-screenshot-label">alpensign-01</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 3 — AlpenSign: Genesis Token verification -->
+  <div class="flow-step side-left reveal">
+    <div class="flow-card-left">
+      <div class="flow-card">
+        <div class="flow-card-step">AlpenSign</div>
+        <h3>Genesis Token verified</h3>
+        <p>AlpenSign queries the SGT API to confirm a genuine Seeker Genesis Token is present. This is the device identity anchor — soulbound and non-transferable.</p>
+        <img class="flow-screenshot" src="./images/screenshots/alpensign-02.png" alt="Genesis Token check" onclick="openLightbox(this)" loading="lazy">
+        <span class="flow-screenshot-label">alpensign-02</span>
+      </div>
+    </div>
+    <div class="flow-node"><div class="flow-node-dot"></div></div>
+    <div class="flow-card-right">
+      <div class="flow-card flow-card-mobile-only">
+        <div class="flow-card-step" style="color: var(--lane-alpen);">AlpenSign</div>
+        <h3>Genesis Token verified</h3>
+        <p>AlpenSign queries the SGT API to confirm a genuine Seeker Genesis Token is present. This is the device identity anchor.</p>
+        <img class="flow-screenshot" src="./images/screenshots/alpensign-02.png" alt="Genesis Token check" onclick="openLightbox(this)" loading="lazy">
+        <span class="flow-screenshot-label">alpensign-02</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Arrow: AlpenSign connects to wallet -->
+  <div class="flow-arrow">
+    <div class="flow-arrow-line to-right">MWA connect</div>
+  </div>
+
+  <!-- Step 4 — AlpenSign: Wallet connected -->
+  <div class="flow-step side-left reveal">
+    <div class="flow-card-left">
+      <div class="flow-card">
+        <div class="flow-card-step">AlpenSign</div>
+        <h3>Wallet connected via MWA</h3>
+        <p>Mobile Wallet Adapter handshake completes. The Seed Vault wallet address is now bound to the AlpenSign session.</p>
+        <img class="flow-screenshot" src="./images/screenshots/alpensign-03.png" alt="Wallet connected" onclick="openLightbox(this)" loading="lazy">
+        <span class="flow-screenshot-label">alpensign-03</span>
+      </div>
+    </div>
+    <div class="flow-node"><div class="flow-node-dot"></div></div>
+    <div class="flow-card-right">
+      <div class="flow-card flow-card-mobile-only">
+        <div class="flow-card-step" style="color: var(--lane-alpen);">AlpenSign</div>
+        <h3>Wallet connected via MWA</h3>
+        <p>Mobile Wallet Adapter handshake completes. The Seed Vault wallet address is now bound to the AlpenSign session.</p>
+        <img class="flow-screenshot" src="./images/screenshots/alpensign-03.png" alt="Wallet connected" onclick="openLightbox(this)" loading="lazy">
+        <span class="flow-screenshot-label">alpensign-03</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Arrow: BroadcastChannel link -->
+  <div class="flow-arrow">
+    <div class="flow-arrow-line bidir">BroadcastChannel</div>
+  </div>
+
+  <!-- Step 5 — Bank: Device linked -->
+  <div class="flow-step side-right reveal">
+    <div class="flow-card-left"><div class="flow-card"></div></div>
+    <div class="flow-node"><div class="flow-node-dot"></div></div>
+    <div class="flow-card-right">
+      <div class="flow-card">
+        <div class="flow-card-step">Bank Simulator</div>
+        <h3>Signing device linked</h3>
+        <p>The bank simulator receives the device identity via BroadcastChannel. It now shows the connected Seeker wallet and Genesis Token status.</p>
+        <img class="flow-screenshot" src="./images/screenshots/banksim-02.png" alt="Bank recognizes device" onclick="openLightbox(this)" loading="lazy">
+        <span class="flow-screenshot-label">banksim-02</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== PHASE 2: Credential Binding ======== -->
+  <div class="flow-phase">
+    <div class="flow-phase-badge">Phase 2</div>
+    <div class="flow-phase-title">Credential Binding</div>
+  </div>
+
+  <!-- Step 6 — Bank: Issues credential -->
+  <div class="flow-step side-right reveal">
+    <div class="flow-card-left"><div class="flow-card"></div></div>
+    <div class="flow-node"><div class="flow-node-dot"></div></div>
+    <div class="flow-card-right">
+      <div class="flow-card">
+        <div class="flow-card-step">Bank Simulator</div>
+        <h3>Bank issues credential attestation</h3>
+        <p>Using the Solana Attestation Service, the bank binds the customer's signing authority to the specific Seeker wallet + Genesis Token pair.</p>
+        <img class="flow-screenshot" src="./images/screenshots/banksim-03.png" alt="Credential issued" onclick="openLightbox(this)" loading="lazy">
+        <span class="flow-screenshot-label">banksim-03</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Arrow -->
+  <div class="flow-arrow">
+    <div class="flow-arrow-line to-left">SAS attestation</div>
+  </div>
+
+  <!-- Step 7 — AlpenSign: Credential received -->
+  <div class="flow-step side-left reveal">
+    <div class="flow-card-left">
+      <div class="flow-card">
+        <div class="flow-card-step">AlpenSign</div>
+        <h3>Credential received &amp; stored</h3>
+        <p>AlpenSign confirms the on-chain attestation. The device is now an authorized signing instrument for this bank account.</p>
+        <img class="flow-screenshot" src="./images/screenshots/alpensign-04.png" alt="Credential confirmed" onclick="openLightbox(this)" loading="lazy">
+        <span class="flow-screenshot-label">alpensign-04</span>
+      </div>
+    </div>
+    <div class="flow-node"><div class="flow-node-dot"></div></div>
+    <div class="flow-card-right">
+      <div class="flow-card flow-card-mobile-only">
+        <div class="flow-card-step" style="color: var(--lane-alpen);">AlpenSign</div>
+        <h3>Credential received &amp; stored</h3>
+        <p>AlpenSign confirms the on-chain attestation. The device is now an authorized signing instrument for this bank account.</p>
+        <img class="flow-screenshot" src="./images/screenshots/alpensign-04.png" alt="Credential confirmed" onclick="openLightbox(this)" loading="lazy">
+        <span class="flow-screenshot-label">alpensign-04</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== PHASE 3: Transaction Sealing ======== -->
+  <div class="flow-phase">
+    <div class="flow-phase-badge">Phase 3</div>
+    <div class="flow-phase-title">Transaction Sealing</div>
+  </div>
+
+  <!-- Step 8 — Bank: Payment queued -->
+  <div class="flow-step side-right reveal">
+    <div class="flow-card-left"><div class="flow-card"></div></div>
+    <div class="flow-node"><div class="flow-node-dot"></div></div>
+    <div class="flow-card-right">
+      <div class="flow-card">
+        <div class="flow-card-step">Bank Simulator</div>
+        <h3>Payment queued for approval</h3>
+        <p>A payment order appears in the bank dashboard — awaiting cryptographic seal from the authorized Seeker device before it can be submitted.</p>
+        <img class="flow-screenshot" src="./images/screenshots/banksim-04.png" alt="Payment pending" onclick="openLightbox(this)" loading="lazy">
+        <span class="flow-screenshot-label">banksim-04</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Arrow -->
+  <div class="flow-arrow">
+    <div class="flow-arrow-line to-left">seal request</div>
+  </div>
+
+  <!-- Step 9 — AlpenSign: Seal request shown -->
+  <div class="flow-step side-left reveal">
+    <div class="flow-card-left">
+      <div class="flow-card">
+        <div class="flow-card-step">AlpenSign</div>
+        <h3>Seal request received</h3>
+        <p>AlpenSign displays the payment details for review — amount, recipient, reference. The user must explicitly approve before the Seed Vault signs.</p>
+        <img class="flow-screenshot" src="./images/screenshots/alpensign-05.png" alt="Seal request" onclick="openLightbox(this)" loading="lazy">
+        <span class="flow-screenshot-label">alpensign-05</span>
+      </div>
+    </div>
+    <div class="flow-node"><div class="flow-node-dot"></div></div>
+    <div class="flow-card-right">
+      <div class="flow-card flow-card-mobile-only">
+        <div class="flow-card-step" style="color: var(--lane-alpen);">AlpenSign</div>
+        <h3>Seal request received</h3>
+        <p>AlpenSign displays the payment details for review — amount, recipient, reference. The user must explicitly approve.</p>
+        <img class="flow-screenshot" src="./images/screenshots/alpensign-05.png" alt="Seal request" onclick="openLightbox(this)" loading="lazy">
+        <span class="flow-screenshot-label">alpensign-05</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 10 — AlpenSign: Biometric + Seed Vault signing -->
+  <div class="flow-step side-left reveal">
+    <div class="flow-card-left">
+      <div class="flow-card">
+        <div class="flow-card-step">AlpenSign</div>
+        <h3>Biometric confirmation &amp; signing</h3>
+        <p>The user confirms via biometric prompt. The Seed Vault signs the transaction hash inside the secure element — the private key never leaves hardware.</p>
+        <img class="flow-screenshot" src="./images/screenshots/alpensign-06.png" alt="Biometric signing" onclick="openLightbox(this)" loading="lazy">
+        <span class="flow-screenshot-label">alpensign-06</span>
+      </div>
+    </div>
+    <div class="flow-node"><div class="flow-node-dot"></div></div>
+    <div class="flow-card-right">
+      <div class="flow-card flow-card-mobile-only">
+        <div class="flow-card-step" style="color: var(--lane-alpen);">AlpenSign</div>
+        <h3>Biometric confirmation &amp; signing</h3>
+        <p>Seed Vault signs the transaction hash inside the secure element — the private key never leaves hardware.</p>
+        <img class="flow-screenshot" src="./images/screenshots/alpensign-06.png" alt="Biometric signing" onclick="openLightbox(this)" loading="lazy">
+        <span class="flow-screenshot-label">alpensign-06</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Arrow -->
+  <div class="flow-arrow">
+    <div class="flow-arrow-line to-right">sealed tx</div>
+  </div>
+
+  <!-- Step 11 — AlpenSign: Seal posted to Solana -->
+  <div class="flow-step side-left reveal">
+    <div class="flow-card-left">
+      <div class="flow-card">
+        <div class="flow-card-step">AlpenSign</div>
+        <h3>Seal attestation posted to Solana</h3>
+        <p>The cryptographic proof is written on-chain via SAS. The transaction is now tamper-proof and independently verifiable by anyone.</p>
+        <img class="flow-screenshot" src="./images/screenshots/alpensign-07.png" alt="Seal on-chain" onclick="openLightbox(this)" loading="lazy">
+        <span class="flow-screenshot-label">alpensign-07</span>
+      </div>
+    </div>
+    <div class="flow-node"><div class="flow-node-dot"></div></div>
+    <div class="flow-card-right">
+      <div class="flow-card flow-card-mobile-only">
+        <div class="flow-card-step" style="color: var(--lane-alpen);">AlpenSign</div>
+        <h3>Seal attestation posted to Solana</h3>
+        <p>The cryptographic proof is written on-chain via SAS — tamper-proof and independently verifiable.</p>
+        <img class="flow-screenshot" src="./images/screenshots/alpensign-07.png" alt="Seal on-chain" onclick="openLightbox(this)" loading="lazy">
+        <span class="flow-screenshot-label">alpensign-07</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== PHASE 4: Verification ======== -->
+  <div class="flow-phase">
+    <div class="flow-phase-badge">Phase 4</div>
+    <div class="flow-phase-title">Verification &amp; Settlement</div>
+  </div>
+
+  <!-- Step 12 — Bank: Seal verified -->
+  <div class="flow-step side-right reveal">
+    <div class="flow-card-left"><div class="flow-card"></div></div>
+    <div class="flow-node"><div class="flow-node-dot"></div></div>
+    <div class="flow-card-right">
+      <div class="flow-card">
+        <div class="flow-card-step">Bank Simulator</div>
+        <h3>Seal verified on-chain</h3>
+        <p>The bank reads the attestation from Solana, verifies the signature matches the bound credential, and confirms the seal is genuine.</p>
+        <img class="flow-screenshot" src="./images/screenshots/banksim-05.png" alt="Bank verifies seal" onclick="openLightbox(this)" loading="lazy">
+        <span class="flow-screenshot-label">banksim-05</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 13 — Bank: Payment approved -->
+  <div class="flow-step side-right reveal">
+    <div class="flow-card-left"><div class="flow-card"></div></div>
+    <div class="flow-node"><div class="flow-node-dot"></div></div>
+    <div class="flow-card-right">
+      <div class="flow-card">
+        <div class="flow-card-step">Bank Simulator</div>
+        <h3>Payment approved &amp; submitted</h3>
+        <p>With a valid seal, the bank authorizes the payment for processing. The full audit trail — device, biometric, signature, on-chain proof — is complete.</p>
+        <img class="flow-screenshot" src="./images/screenshots/banksim-06.png" alt="Payment approved" onclick="openLightbox(this)" loading="lazy">
+        <span class="flow-screenshot-label">banksim-06</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Both lanes: final state -->
+  <div class="flow-step side-both reveal">
+    <div class="flow-card-left">
+      <div class="flow-card">
+        <div class="flow-card-step">AlpenSign</div>
+        <h3>Seal confirmed</h3>
+        <p>AlpenSign shows the completed seal with its Solana transaction link — a permanent, public proof of authorization.</p>
+        <img class="flow-screenshot" src="./images/screenshots/alpensign-08.png" alt="AlpenSign confirmation" onclick="openLightbox(this)" loading="lazy">
+        <span class="flow-screenshot-label">alpensign-08</span>
+      </div>
+    </div>
+    <div class="flow-node"><div class="flow-node-dot"></div></div>
+    <div class="flow-card-right">
+      <div class="flow-card">
+        <div class="flow-card-step">Bank Simulator</div>
+        <h3>Ledger updated</h3>
+        <p>The bank's internal ledger reflects the sealed, approved transaction. Both parties have independent cryptographic proof.</p>
+        <img class="flow-screenshot" src="./images/screenshots/banksim-07.png" alt="Bank ledger updated" onclick="openLightbox(this)" loading="lazy">
+        <span class="flow-screenshot-label">banksim-07</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- End mark -->
+  <div class="flow-end">
+    <div class="flow-end-icon">✓</div>
+    <p>Transaction sealed. No server. No intermediary. Just math.</p>
+  </div>
+
+</div>
+
+<!-- Footer -->
+<div class="flow-footer">
+  <a href="./index.html">← Back to AlpenSign</a>
+  <span>Experimental · Screenshots from demo build</span>
+</div>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+  <img id="lightboxImg" src="" alt="">
+  <div class="lightbox-caption" id="lightboxCaption"></div>
+</div>
+
+<script>
+  // Scroll reveal
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+      }
+    });
+  }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
+
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+  // Lightbox
+  function openLightbox(img) {
+    const lb = document.getElementById('lightbox');
+    const lbImg = document.getElementById('lightboxImg');
+    const lbCap = document.getElementById('lightboxCaption');
+    lbImg.src = img.src;
+    lbCap.textContent = img.alt;
+    lb.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeLightbox() {
+    const lb = document.getElementById('lightbox');
+    lb.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeLightbox();
+  });
+
+  // Broken image fallback — show placeholder
+  document.querySelectorAll('.flow-screenshot').forEach(img => {
+    img.onerror = function() {
+      this.style.display = 'none';
+      const ph = document.createElement('div');
+      ph.style.cssText = `
+        width: 100%; aspect-ratio: 9/16; max-height: 280px;
+        background: var(--bg-secondary); border: 1px dashed var(--border-subtle);
+        border-radius: 6px; display: flex; align-items: center;
+        justify-content: center; font-family: 'JetBrains Mono', monospace;
+        font-size: 0.7rem; color: var(--text-dim); letter-spacing: 0.05em;
+      `;
+      const label = this.nextElementSibling;
+      ph.textContent = label ? label.textContent : 'screenshot';
+      this.parentNode.insertBefore(ph, this.nextSibling);
+    };
+  });
+</script>
+
+</body>
+</html>
