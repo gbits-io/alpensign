@@ -1,15 +1,8 @@
-[
-  {
-    "relation": [
-      "delegate_permission/common.handle_all_urls",
-      "delegate_permission/common.get_login_creds"
-    ],
-    "target": {
-      "namespace": "android_app",
-      "package_name": "io.gbits.alpensign",
-      "sha256_cert_fingerprints": [
-        "YOUR_ACTUAL_SHA256_FINGERPRINT_HERE"
-      ]
-    }
-  }
-]
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.alpensign.twa",
+        "sha256_cert_fingerprints": ["D3:84:86:63:47:62:90:E2:8B:7F:A0:50:87:D7:F1:61:9B:6A:EC:53:F9:55:B6:C3:72:9B:B6:95:D5:D9:8E:86"]
+      }
+    }]
