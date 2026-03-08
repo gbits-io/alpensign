@@ -26,6 +26,45 @@
       "purpose": "maskable"
     }
   ],
+  "screenshots": [
+    {
+      "src": "./images/screenshots/alpensign-01.png",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "AlpenSign — start screen"
+    },
+    {
+      "src": "./images/screenshots/alpensign-02.png",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "AlpenSign — initialize vault"
+    },
+    {
+      "src": "./images/screenshots/alpensign-07.png",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Alpensign - Enrollment complete"
+    },
+    {
+      "src": "./images/screenshots/alpensign-10.png",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Alpensign - push notification"
+    },
+    {
+      "src": "./images/screenshots/alpensign-11.png",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Alpensign - sign payment request with biometric"
+    },
+    {
+      "src": "./images/screenshots/alpensign-12.png",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Alpensign - post signed payment request hash to Solana"
+    }
+  ],
+  "categories": ["finance", "utilities"],
   "orientation": "portrait",
   "scope": "/"
 }
