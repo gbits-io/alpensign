@@ -955,8 +955,8 @@ html, body {
             <div class="timeline-step done">
               <div class="timeline-num">✓</div>
               <div class="timeline-body">
-                <div class="timeline-title">BroadcastChannel Bridge Active</div>
-                <div class="timeline-desc">AlpenSign notified — payment requests will be delivered via browser channel.</div>
+                <div class="timeline-title">Communication Bridge Active</div>
+                <div class="timeline-desc">AlpenSign notified — payment requests will be delivered via cross-context bridge.</div>
               </div>
             </div>
           </div>
@@ -1573,20 +1573,47 @@ function updatePaymentView() {
   }
 }
 
-// ═══ BROADCASTCHANNEL — AlpenSign Bridge ═══
-const alpensignChannel = new BroadcastChannel('alpensign-bank-bridge');
+// ═══ STORAGE BRIDGE — AlpenSign Communication ═══
+// Dual-transport: localStorage 'storage' events (cross-context,
+// works across TWA ↔ Chrome tabs) + BroadcastChannel (fast-path).
+const BRIDGE_KEY = 'alpensign_bridge_msg';
+const BRIDGE_KEY_REVERSE = 'alpensign_bridge_msg_reverse';
+
+// Bank SENDS on BRIDGE_KEY (AlpenSign reads it) and LISTENS on BRIDGE_KEY_REVERSE
+const BRIDGE_SEND_KEY = BRIDGE_KEY;
+const BRIDGE_LISTEN_KEY = BRIDGE_KEY_REVERSE;
+
+let alpensignChannel = null;
+try {
+  alpensignChannel = new BroadcastChannel('alpensign-bank-bridge');
+} catch (e) {
+  console.warn('[BankBridge] BroadcastChannel not available:', e.message);
+}
+
+// Unified send: BroadcastChannel + localStorage
+function bridgeSend(msg) {
+  if (alpensignChannel) {
+    try { alpensignChannel.postMessage(msg); } catch (e) {
+      console.warn('[BankBridge] BroadcastChannel send failed:', e.message);
+    }
+  }
+  try {
+    localStorage.setItem(BRIDGE_SEND_KEY, JSON.stringify({ ...msg, _ts: Date.now() }));
+  } catch (e) {
+    console.warn('[BankBridge] localStorage send failed:', e.message);
+  }
+}
 
 // Real wallet address received from AlpenSign (overrides simulated addresses)
 let realWalletAddress = null;
 
-alpensignChannel.onmessage = (event) => {
-  const msg = event.data;
+// Unified message handler
+function handleBridgeMessage(msg) {
   console.log('[BankBridge] Received:', msg.type);
 
   if (msg.type === 'wallet-connected') {
     realWalletAddress = msg.walletAddress;
     console.log('[BankBridge] Real wallet address from AlpenSign:', realWalletAddress);
-    // If .skr was already resolved, update the displayed address
     if (state.solanaAddress && realWalletAddress) {
       state.solanaAddress = realWalletAddress;
       const el = document.getElementById('resolved-address');
@@ -1597,10 +1624,35 @@ alpensignChannel.onmessage = (event) => {
   }
 
   if (msg.type === 'seal-complete') {
-    // AlpenSign completed a seal — update payment UI
     handleSealFromAlpenSign(msg.seal);
   }
-};
+}
+
+// Deduplicate messages
+let _lastBridgeMsgTs = 0;
+
+// Listen: BroadcastChannel
+if (alpensignChannel) {
+  alpensignChannel.onmessage = (event) => {
+    const msg = event.data;
+    if (msg._ts && msg._ts === _lastBridgeMsgTs) return;
+    _lastBridgeMsgTs = msg._ts || 0;
+    handleBridgeMessage(msg);
+  };
+}
+
+// Listen: localStorage 'storage' event (fires in OTHER tabs/contexts)
+window.addEventListener('storage', (e) => {
+  if (e.key !== BRIDGE_LISTEN_KEY || !e.newValue) return;
+  try {
+    const msg = JSON.parse(e.newValue);
+    if (msg._ts && msg._ts === _lastBridgeMsgTs) return;
+    _lastBridgeMsgTs = msg._ts || 0;
+    handleBridgeMessage(msg);
+  } catch (err) {
+    console.warn('[BankBridge] Failed to parse storage message:', err);
+  }
+});
 
 async function handleSealFromAlpenSign(seal) {
   if (!state.paymentSent || state.paymentSealed) return;
@@ -1644,7 +1696,7 @@ async function handleSealFromAlpenSign(seal) {
 
 // Send attestation confirmation to AlpenSign
 function sendAttestationToAlpenSign() {
-  alpensignChannel.postMessage({
+  bridgeSend({
     type: 'attestation-confirmed',
     contract: 'KB-2026-004871',
     bank: 'Big Bank 123',
@@ -1726,8 +1778,8 @@ async function pairGenericDevice() {
 
   document.getElementById('generic-attestation-card').style.display = 'block';
 
-  // Notify AlpenSign via BroadcastChannel
-  alpensignChannel.postMessage({
+  // Notify AlpenSign via StorageBridge
+  bridgeSend({
     type: 'attestation-confirmed',
     contract: 'KB-2026-004871',
     bank: 'Big Bank 123',
@@ -1904,7 +1956,7 @@ async function completeAttestation() {
 
   document.getElementById('attestation-card').style.display = 'block';
 
-  // Notify AlpenSign via BroadcastChannel
+  // Notify AlpenSign via StorageBridge
   sendAttestationToAlpenSign();
 
   // Scroll to attestation
@@ -1954,9 +2006,9 @@ async function sendPayment() {
   document.getElementById('pending-ref').textContent = ref;
   document.getElementById('pending-date').textContent = date;
 
-  // Send to AlpenSign via BroadcastChannel
+  // Send to AlpenSign via StorageBridge
   const requestId = 'PAY-' + Date.now();
-  alpensignChannel.postMessage({
+  bridgeSend({
     type: 'payment-request',
     requestId,
     payment: {

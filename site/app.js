@@ -1,5 +1,5 @@
 // ============================================================
-// AlpenSign v0.5.5 — Transaction Sealing for Banks
+// AlpenSign v0.5.6 — Transaction Sealing for Banks
 // Solana Seeker Hackathon · Q1 2026
 //
 // Zero dependencies. Zero build step. Zero backend.
@@ -462,6 +462,17 @@ async function detectDevice() {
     seekerDetected = /seeker|solanamobile|solana\s*mobile|saga/i.test(ua);
     const m = ua.match(/;\s*([^;)]+?)(?:(?:\s+Build\/)|(?:\s*Webkit)|(?:\s*[\);]))/i);
     if (m && deviceModel === 'Unknown Device') deviceModel = m[1].trim();
+  }
+
+  // TWA/APK fallback: inside a PWABuilder TWA wrapper, the Seeker-specific
+  // UA branding is stripped by Chrome. Check for MWA availability instead —
+  // if the MWA preload succeeded, we're on a device with Solana Mobile.
+  if (!seekerDetected && /android/i.test(ua)) {
+    if (window.__mwaTransact) {
+      seekerDetected = true;
+      deviceModel = deviceModel === 'Unknown Device' ? 'Solana Seeker (TWA)' : deviceModel;
+      console.log('[DetectDevice] Seeker detected via MWA availability (TWA fallback)');
+    }
   }
 
   const isAndroid = /android/i.test(ua);
@@ -1073,7 +1084,7 @@ $('btnConnectWallet').addEventListener('click', () => {  // NOT async!
     console.log('[MWA] ✅ Wallet:', walletBase58);
 
     // Notify bank simulator of real wallet address (for .skr resolution)
-    bankChannel.postMessage({
+    bridgeSend({
       type: 'wallet-connected',
       walletAddress: walletBase58,
       seekerId: state.seekerId || null,
@@ -1088,6 +1099,27 @@ $('btnConnectWallet').addEventListener('click', () => {  // NOT async!
       const shortMint = sgtMint.substring(0, 6) + '...' + sgtMint.slice(-4);
       statusEl.innerHTML = `<span style="color: var(--accent-light);">✓ Wallet connected</span>`
         + `<br><span style="color: var(--purple);">✓ Genesis Token verified (${shortMint})</span>`;
+
+      // Retroactive Seeker promotion: if device was detected as GENERIC_ANDROID
+      // (e.g., inside a TWA where UA branding is missing), but Genesis Token
+      // verification succeeded, promote to SOLANA_SEEKER. The SGT is the
+      // authoritative proof — more reliable than user agent sniffing.
+      if (state.deviceType === 'GENERIC_ANDROID') {
+        console.log('[DetectDevice] Promoting GENERIC_ANDROID → SOLANA_SEEKER (SGT verified)');
+        state.deviceType = 'SOLANA_SEEKER';
+        state.deviceModel = state.deviceModel || 'Solana Seeker';
+        const banner = $('deviceBanner');
+        const icon = $('deviceIcon');
+        const msg = $('deviceMessage');
+        const modelEl = $('deviceModel');
+        if (banner) {
+          banner.className = 'device-banner show seeker';
+          icon.textContent = '✅';
+          msg.textContent = 'Solana Seeker verified — Genesis Token confirmed';
+          modelEl.textContent = state.deviceModel;
+          autoDismissBanner();
+        }
+      }
     } else {
       state.genesisVerified = false;
       state.genesisTokenMint = null;
@@ -1776,13 +1808,46 @@ $('toggleDemoMode').addEventListener('change', (e) => {
 });
 
 // ============================================================
-// BROADCASTCHANNEL — Bank Simulator Bridge
+// STORAGE BRIDGE — Bank Simulator Communication
 // ============================================================
+// Dual-transport bridge: localStorage 'storage' events (cross-context,
+// works across TWA ↔ Chrome tabs) + BroadcastChannel (fast-path for
+// same-browser-profile contexts). This ensures communication works
+// both in regular browser tabs AND when AlpenSign runs inside a
+// TWA/APK wrapper built by PWABuilder.
 
-const bankChannel = new BroadcastChannel('alpensign-bank-bridge');
+const BRIDGE_KEY = 'alpensign_bridge_msg';
+const BRIDGE_KEY_REVERSE = 'alpensign_bridge_msg_reverse';
 
-bankChannel.onmessage = (event) => {
-  const msg = event.data;
+// We SEND on BRIDGE_KEY_REVERSE (bank reads it) and LISTEN on BRIDGE_KEY (bank writes it)
+const BRIDGE_SEND_KEY = BRIDGE_KEY_REVERSE;
+const BRIDGE_LISTEN_KEY = BRIDGE_KEY;
+
+let bankChannel = null;
+try {
+  bankChannel = new BroadcastChannel('alpensign-bank-bridge');
+} catch (e) {
+  console.warn('[BankBridge] BroadcastChannel not available:', e.message);
+}
+
+// Unified send: BroadcastChannel (fast-path) + localStorage (cross-context fallback)
+function bridgeSend(msg) {
+  // 1. BroadcastChannel (instant, same browser profile only)
+  if (bankChannel) {
+    try { bankChannel.postMessage(msg); } catch (e) {
+      console.warn('[BankBridge] BroadcastChannel send failed:', e.message);
+    }
+  }
+  // 2. localStorage storage event (works across TWA ↔ Chrome)
+  try {
+    localStorage.setItem(BRIDGE_SEND_KEY, JSON.stringify({ ...msg, _ts: Date.now() }));
+  } catch (e) {
+    console.warn('[BankBridge] localStorage send failed:', e.message);
+  }
+}
+
+// Unified message handler
+function handleBridgeMessage(msg) {
   console.log('[BankBridge] Received:', msg.type);
 
   if (msg.type === 'payment-request') {
@@ -1816,10 +1881,36 @@ bankChannel.onmessage = (event) => {
       }
     }
   }
-};
+}
+
+// Deduplicate messages (storage events can fire rapidly)
+let _lastBridgeMsgTs = 0;
+
+// Listen: BroadcastChannel
+if (bankChannel) {
+  bankChannel.onmessage = (event) => {
+    const msg = event.data;
+    if (msg._ts && msg._ts === _lastBridgeMsgTs) return; // dedupe
+    _lastBridgeMsgTs = msg._ts || 0;
+    handleBridgeMessage(msg);
+  };
+}
+
+// Listen: localStorage 'storage' event (fires in OTHER tabs/contexts when key changes)
+window.addEventListener('storage', (e) => {
+  if (e.key !== BRIDGE_LISTEN_KEY || !e.newValue) return;
+  try {
+    const msg = JSON.parse(e.newValue);
+    if (msg._ts && msg._ts === _lastBridgeMsgTs) return; // dedupe
+    _lastBridgeMsgTs = msg._ts || 0;
+    handleBridgeMessage(msg);
+  } catch (err) {
+    console.warn('[BankBridge] Failed to parse storage message:', err);
+  }
+});
 
 function notifyBankSealComplete(seal) {
-  bankChannel.postMessage({
+  bridgeSend({
     type: 'seal-complete',
     requestId: state.currentRequest?._bankRequestId || null,
     seal: {
@@ -1932,10 +2023,21 @@ async function init() {
   updateNetworkBadge();
   applyDemoMode();
 
-  // Pre-load MWA on Seeker
-  if (isSeekerDevice()) {
+  // Pre-load MWA on Seeker or any Android (TWA may hide Seeker UA)
+  if (isSeekerDevice() || state.deviceType === 'GENERIC_ANDROID') {
     loadMWA().then(ok => {
-      if (ok) console.log('MWA pre-loaded');
+      if (ok) {
+        console.log('MWA pre-loaded');
+        // If MWA loaded on a GENERIC_ANDROID, re-run detection
+        if (!isSeekerDevice() && window.__mwaTransact) {
+          console.log('[Init] MWA available on GENERIC_ANDROID — re-detecting device');
+          detectDevice().then(() => {
+            updateHeaderBadge();
+            // Update enrollment UI if already in progress
+            if (state.credId && !state.enrolled) adaptEnrollStep2();
+          });
+        }
+      }
       else console.warn('MWA pre-load failed (will retry on demand)');
     });
   }
