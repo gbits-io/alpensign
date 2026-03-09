@@ -970,16 +970,48 @@ function adaptEnrollmentForDevice() {
 // Adapt enrollment step 2 for device type
 function adaptEnrollStep2() {
   if (isSeekerDevice()) {
-    $('enroll2Icon').textContent = '🔗';
-    $('enroll2Title').textContent = 'Connect Seed Vault Wallet';
-    $('enroll2Desc').textContent = 'Authorize AlpenSign to use your Seeker\'s Seed Vault wallet for signing Solana transactions.';
-    $('btnConnectWallet').classList.remove('hidden');
+    // Check if running inside TWA/standalone PWA — MWA WebSocket won't work
+    const inTWA = isStandalonePWA();
+
+    $('enroll2Icon').textContent = inTWA ? '🌐' : '🔗';
+    $('enroll2Title').textContent = inTWA
+      ? 'Connect Wallet via Chrome'
+      : 'Connect Seed Vault Wallet';
+    $('enroll2Desc').textContent = inTWA
+      ? 'The installed app cannot connect to Seed Vault directly. Open AlpenSign in Chrome to link your wallet — it only takes a moment.'
+      : 'Authorize AlpenSign to use your Seeker\'s Seed Vault wallet for signing Solana transactions.';
+
+    if (inTWA) {
+      // Hide the standard MWA button, show Chrome redirect instead
+      $('btnConnectWallet').classList.add('hidden');
+
+      // Create or update the Chrome redirect button
+      let chromeBtn = $('btnOpenInChrome');
+      if (!chromeBtn) {
+        chromeBtn = document.createElement('button');
+        chromeBtn.id = 'btnOpenInChrome';
+        chromeBtn.className = 'btn btn-seal mt-2';
+        chromeBtn.innerHTML = '🌐 Open in Chrome Browser';
+        chromeBtn.addEventListener('click', openInChromeBrowser);
+        // Insert where Connect Wallet button is
+        $('btnConnectWallet').parentElement.insertBefore(chromeBtn, $('btnConnectWallet').nextSibling);
+      }
+      chromeBtn.classList.remove('hidden');
+
+      $('enrollStatus2').innerHTML = '<span style="color: var(--text-secondary);">Connect your wallet in Chrome, then return here. Your wallet will be remembered.</span>';
+    } else {
+      $('btnConnectWallet').classList.remove('hidden');
+      const chromeBtn = $('btnOpenInChrome');
+      if (chromeBtn) chromeBtn.classList.add('hidden');
+    }
     // Button content kept as original HTML (has SVG icon)
   } else {
     $('enroll2Icon').textContent = '🔒';
     $('enroll2Title').textContent = 'Platform Key Created';
     $('enroll2Desc').textContent = 'Your device\'s WebAuthn key is ready. On-chain sealing requires a Solana Seeker with Seed Vault.';
     $('btnConnectWallet').classList.add('hidden');
+    const chromeBtn = $('btnOpenInChrome');
+    if (chromeBtn) chromeBtn.classList.add('hidden');
     $('btnSimulateBank').classList.remove('hidden');
     $('bankPairingSection').classList.remove('hidden');
     $('btnOpenBankPortal').classList.remove('hidden');
@@ -997,6 +1029,32 @@ $('btnGetStarted').addEventListener('click', () => {
   saveState();
   $('view-welcome').classList.remove('active');
   $('view-enroll').classList.add('active');
+
+  // If credId already exists (inherited from Chrome session via shared localStorage),
+  // skip step 1 (Initialize Vault) and go directly to step 2.
+  if (state.credId) {
+    $('enroll-1').classList.remove('active');
+    $('enroll-2').classList.add('active');
+    adaptEnrollStep2();
+    if (state.walletAddr) {
+      $('walletDisplay').classList.remove('hidden');
+      $('walletAddr').textContent = state.walletAddr;
+      $('btnSimulateBank').classList.remove('hidden');
+      $('bankPairingSection').classList.remove('hidden');
+      $('btnOpenBankPortal').classList.remove('hidden');
+      if (isStandalonePWA()) {
+        const chromeBtn = $('btnOpenInChrome');
+        if (chromeBtn) chromeBtn.classList.add('hidden');
+        $('enroll2Icon').textContent = '✅';
+        $('enroll2Title').textContent = 'Wallet Connected';
+        $('enroll2Desc').textContent = 'Seed Vault wallet linked via Chrome. You can now proceed to bank pairing.';
+        $('enrollStatus2').innerHTML = '<span style="color: var(--accent-light);">✓ Wallet: '
+          + state.walletAddr.substring(0, 8) + '...' + state.walletAddr.slice(-4) + '</span>';
+      }
+      applyDemoMode();
+    }
+    updateHeaderBadge();
+  }
 });
 
 // ============================================================
@@ -1361,6 +1419,14 @@ $('btnSeal').addEventListener('click', async () => {
     let failReason = '';
 
     if (isSeekerDevice() && state.walletAddr) {
+      // In TWA/standalone mode, MWA WebSocket won't work for signing either.
+      // Skip the MWA attempt entirely and record as local proof.
+      if (isStandalonePWA()) {
+        console.log('[Seal] TWA detected — skipping MWA, recording local proof');
+        $('step-post-sub').textContent = 'App shell mode — local proof only';
+        failReason = 'TWA_NO_MWA';
+        await new Promise(r => setTimeout(r, 600));
+      } else {
       // Build the memo TX payload and serialize BEFORE opening wallet session
       // (RPC calls shouldn't happen while Chrome is backgrounded by MWA)
       const memoPayload = buildMemoPayload(p, txHash, signature);
@@ -1536,6 +1602,8 @@ $('btnSeal').addEventListener('click', async () => {
         });
       }
 
+      } // end else (non-TWA MWA path)
+
     } else if (!isSeekerDevice()) {
       $('sealBadge').textContent = 'Recording...';
       failReason = 'NON_SEEKER';
@@ -1551,7 +1619,7 @@ $('btnSeal').addEventListener('click', async () => {
     $(steps[3]).classList.add('done');
 
     // Show fail reason on step 4 for diagnostics
-    if (failReason && failReason !== 'NON_SEEKER') {
+    if (failReason && failReason !== 'NON_SEEKER' && failReason !== 'TWA_NO_MWA') {
       $('step-post-sub').textContent = '❌ ' + failReason;
       $('step-post-sub').style.color = 'var(--red)';
     }
@@ -1640,10 +1708,14 @@ $('btnSeal').addEventListener('click', async () => {
     } else {
       titleEl.textContent = 'Seal Created (Local)';
       titleEl.style.color = 'var(--amber)';
-      subEl.textContent = 'Seed Vault signing succeeded but Solana posting failed';
+      subEl.textContent = failReason === 'TWA_NO_MWA'
+        ? 'Biometric signature recorded locally. Open in Chrome for on-chain posting.'
+        : 'Seed Vault signing succeeded but Solana posting failed';
       $('resultTx').textContent = '—';
       $('resultTx').style.cursor = 'default';
-      $('resultTxConfirm').textContent = 'NOT POSTED — ' + (failReason || 'unknown error');
+      $('resultTxConfirm').textContent = failReason === 'TWA_NO_MWA'
+        ? 'NOT POSTED — app shell mode (use Chrome for on-chain)'
+        : 'NOT POSTED — ' + (failReason || 'unknown error');
       $('resultTxConfirm').style.color = 'var(--amber)';
       $('btnViewExplorer').classList.add('hidden');
     }
@@ -1698,6 +1770,7 @@ $('btnReconnectWallet').addEventListener('click', async () => {
 $('btnReset').addEventListener('click', () => {
   if (confirm('Remove all keys and seal history? This cannot be undone.')) {
     localStorage.removeItem('alpensign_state');
+    localStorage.removeItem('alpensign_twa_seen');
     window.location.reload();
   }
 });
@@ -2069,6 +2142,56 @@ function copyChallengeSignature() {
 window.copyChallengeSignature = copyChallengeSignature;
 
 // ============================================================
+// TWA WALLET RETURN DETECTION
+// ============================================================
+// When the user opens Chrome to connect their wallet and returns
+// to the TWA, the wallet address will be in localStorage. Detect
+// this on visibility change and update the UI automatically.
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  if (!isStandalonePWA()) return;
+  if (state.enrolled) return; // already enrolled, no need
+
+  // Re-read state from localStorage (may have been updated in Chrome)
+  const previousWallet = state.walletAddr;
+  try {
+    const saved = JSON.parse(localStorage.getItem('alpensign_state'));
+    if (saved && saved.walletAddr && saved.walletAddr !== previousWallet) {
+      console.log('[TWA Return] Wallet detected from Chrome session:', saved.walletAddr);
+      state.walletAddr = saved.walletAddr;
+      state.mwaAuthToken = saved.mwaAuthToken || null;
+      state.mwaWalletUriBase = saved.mwaWalletUriBase || null;
+      state.genesisVerified = saved.genesisVerified || false;
+      state.genesisTokenMint = saved.genesisTokenMint || null;
+      if (saved.enrolled) {
+        state.enrolled = true;
+        navigateTo('home');
+        updateHeaderBadge();
+        return;
+      }
+
+      // Update enrollment step 2 UI
+      $('walletDisplay').classList.remove('hidden');
+      $('walletAddr').textContent = state.walletAddr;
+      const chromeBtn = $('btnOpenInChrome');
+      if (chromeBtn) chromeBtn.classList.add('hidden');
+      $('enroll2Icon').textContent = '✅';
+      $('enroll2Title').textContent = 'Wallet Connected';
+      $('enroll2Desc').textContent = 'Seed Vault wallet linked via Chrome. You can now proceed to bank pairing.';
+      $('enrollStatus2').innerHTML = '<span style="color: var(--accent-light);">✓ Wallet: '
+        + state.walletAddr.substring(0, 8) + '...' + state.walletAddr.slice(-4) + '</span>';
+      $('btnSimulateBank').classList.remove('hidden');
+      $('bankPairingSection').classList.remove('hidden');
+      $('btnOpenBankPortal').classList.remove('hidden');
+      applyDemoMode();
+    }
+  } catch (e) {
+    console.warn('[TWA Return] Failed to read state:', e);
+  }
+});
+
+// ============================================================
 // INIT
 // ============================================================
 
@@ -2102,9 +2225,23 @@ async function init() {
   }
 
   // Routing
+  //
+  // TWA first-launch handling: localStorage is shared between the TWA and
+  // Chrome browser (same origin). If the user previously used AlpenSign in
+  // Chrome, the TWA inherits that state (credId, walletAddr, etc.).
+  // On first TWA launch, reset to the welcome screen so the user gets a
+  // clean start in the app context. Their Chrome state is preserved in
+  // localStorage and will be re-used once they proceed past welcome.
+  if (isStandalonePWA() && !localStorage.getItem('alpensign_twa_seen')) {
+    localStorage.setItem('alpensign_twa_seen', '1');
+    console.log('[Init] TWA first launch detected — showing welcome screen');
+    // Clear transient UI state but keep credential/wallet data
+    state.welcomeSeen = false;
+  }
+
   if (state.enrolled) {
     navigateTo('home');
-  } else if (state.credId) {
+  } else if (state.credId && state.welcomeSeen) {
     $('view-enroll').classList.add('active');
     $('enroll-1').classList.remove('active');
     $('enroll-2').classList.add('active');
@@ -2114,8 +2251,23 @@ async function init() {
       $('walletAddr').textContent = state.walletAddr;
       $('btnSimulateBank').classList.remove('hidden');
       $('bankPairingSection').classList.remove('hidden');
-    $('btnOpenBankPortal').classList.remove('hidden');
+      $('btnOpenBankPortal').classList.remove('hidden');
+
+      // If wallet was connected (possibly via Chrome while in TWA), update UI
+      if (isStandalonePWA()) {
+        const chromeBtn = $('btnOpenInChrome');
+        if (chromeBtn) chromeBtn.classList.add('hidden');
+        $('enroll2Icon').textContent = '✅';
+        $('enroll2Title').textContent = 'Wallet Connected';
+        $('enroll2Desc').textContent = 'Seed Vault wallet linked via Chrome. You can now proceed to bank pairing.';
+        $('enrollStatus2').innerHTML = '<span style="color: var(--accent-light);">✓ Wallet: '
+          + state.walletAddr.substring(0, 8) + '...' + state.walletAddr.slice(-4) + '</span>';
+      }
     }
+  } else if (state.credId) {
+    // credId exists but welcomeSeen is false (e.g. TWA first launch reset)
+    // Show welcome screen — user can tap Get Started to proceed to step 2
+    $('view-welcome').classList.add('active');
   } else if (state.welcomeSeen) {
     $('view-enroll').classList.add('active');
   } else {
