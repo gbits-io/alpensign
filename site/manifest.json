@@ -3,7 +3,7 @@
   "short_name": "AlpenSign",
   "description": "Immutable Bank Payment and Credit Card Payment Request Sealing Solana Seeker.",
   "id": "/alpensign",
-  "start_url": "/",
+  "start_url": "/apk.html",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#14F195",
