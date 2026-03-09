@@ -260,19 +260,37 @@
 function launchInChrome() {
   // The real app URL — same origin, different page
   const appUrl = window.location.href.replace(/apk\.html.*$/, 'app.html');
-
-  // Method 1: Android Intent URI — forces Chrome specifically
-  // This works from TWA because the intent targets Chrome by package name
   const stripped = appUrl.replace(/^https?:\/\//, '');
+
+  // The TWA registers as the handler for alpensign.com URLs, so a simple
+  // intent with just the package name loops back to the TWA itself.
+  // We need to force Chrome to open as a NEW TASK with specific intent
+  // flags and an explicit activity selector to bypass TWA interception.
+
+  // Method 1: Intent with explicit Chrome activity + NEW_TASK flag
+  // Flag 0x10000000 = FLAG_ACTIVITY_NEW_TASK
+  // S.browser_fallback_url ensures it works even if Chrome isn't default
   const chromeIntent = 'intent://' + stripped
-    + '#Intent;scheme=https;package=com.android.chrome;end';
+    + '#Intent'
+    + ';scheme=https'
+    + ';package=com.android.chrome'
+    + ';action=android.intent.action.VIEW'
+    + ';launchFlags=0x10000000'
+    + ';S.browser_fallback_url=' + encodeURIComponent(appUrl)
+    + ';end';
 
   window.location.href = chromeIntent;
 
-  // Method 2: fallback — if intent doesn't trigger after 1.5s, use window.open
+  // Method 2: fallback after 2s — try googlechrome:// scheme
+  // This custom scheme is handled by Chrome directly, not by TWAs
   setTimeout(() => {
-    window.open(appUrl, '_blank');
-  }, 1500);
+    window.location.href = 'googlechrome://navigate?url=' + encodeURIComponent(appUrl);
+  }, 2000);
+
+  // Method 3: last resort — plain window.open with _system target
+  setTimeout(() => {
+    window.open(appUrl, '_system');
+  }, 3500);
 }
 </script>
 
