@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.alpensign.twa",
+        "sha256_cert_fingerprints": ["BD:D9:F2:90:10:7D:55:69:B9:02:58:19:78:8A:58:B1:9F:78:E2:0B:00:67:7F:C3:85:0E:D7:48:AF:54:18:31"]
+      }
+    }]
