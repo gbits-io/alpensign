@@ -1198,32 +1198,113 @@
   .demo-video-wrapper {
     display: flex;
     justify-content: center;
+    gap: 3rem;
     margin-top: 3rem;
+    flex-wrap: wrap;
+  }
+
+  .demo-video-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.2rem;
+  }
+
+  .demo-video-label {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+  }
+
+  .demo-video-label .label-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 0.3rem 0.75rem;
+    border-radius: 999px;
+  }
+
+  .demo-video-label .label-badge.part1 {
+    background: var(--accent-dim);
+    border: 1px solid var(--border);
+    color: var(--accent);
+  }
+
+  .demo-video-label .label-badge.part2 {
+    background: rgba(44, 111, 187, 0.07);
+    border: 1px solid rgba(44, 111, 187, 0.2);
+    color: var(--alpine-blue);
+  }
+
+  .demo-video-label .label-title {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text-primary);
   }
 
   .demo-video-frame {
     position: relative;
-    width: 350px;
+    width: 300px;
     aspect-ratio: 9 / 16;
-    border-radius: 16px;
+    border-radius: 20px;
     overflow: hidden;
     border: 1.5px solid var(--border);
     box-shadow: 0 8px 40px rgba(0, 0, 0, 0.1);
     background: #000;
   }
 
-  .demo-video-frame iframe {
+  .demo-video-frame iframe,
+  .demo-video-frame video {
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
     border: none;
+    object-fit: cover;
+  }
+
+  .demo-video-placeholder {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    background: var(--bg-secondary);
+    color: var(--text-dim);
+  }
+
+  .demo-video-placeholder .placeholder-icon {
+    font-size: 2.5rem;
+    opacity: 0.5;
+  }
+
+  .demo-video-placeholder .placeholder-text {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-align: center;
+    padding: 0 1.5rem;
+    line-height: 1.6;
   }
 
   @media (max-width: 900px) {
+    .demo-video-wrapper {
+      gap: 2rem;
+    }
     .demo-video-frame {
-      width: 280px;
+      width: 240px;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .demo-video-frame {
+      width: 200px;
     }
   }
 
@@ -1439,20 +1520,48 @@
     <div class="section-label">Demo</div>
     <h2 class="section-title" style="margin-left: auto; margin-right: auto;">See AlpenSign in action.</h2>
     <p class="section-desc" style="margin-left: auto; margin-right: auto;">
-      A walkthrough of the transaction sealing flow on the Solana Seeker phone.
+      Two walkthroughs on the Solana Seeker phone: enrollment first, then payment sealing.
     </p>
   </div>
 
   <div class="demo-video-wrapper reveal">
-    <div class="demo-video-frame">
-      <iframe
-        src="https://www.youtube.com/embed/8h8cihiz0Fw"
-        title="AlpenSign Demo Video"
-        frameborder="0"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-        allowfullscreen
-      ></iframe>
+
+    <!-- Part 2: Enrollment (precondition) -->
+    <div class="demo-video-item">
+      <div class="demo-video-label">
+        <span class="label-badge part2">Part 2</span>
+        <span class="label-title">Enrollment — the Precondition</span>
+      </div>
+      <div class="demo-video-frame">
+        <!-- Replace the src with your enrollment video URL, e.g.:
+             YouTube:  src="https://www.youtube.com/embed/YOUR_VIDEO_ID"
+             Local:    <video src="./videos/enrollment.mp4" controls playsinline></video>
+        -->
+        <div class="demo-video-placeholder">
+          <span class="placeholder-icon">📲</span>
+          <span class="placeholder-text">Enrollment video<br>coming soon</span>
+        </div>
+      </div>
     </div>
+
+    <!-- Part 1: Transaction Sealing -->
+    <div class="demo-video-item">
+      <div class="demo-video-label">
+        <span class="label-badge part1">Part 1</span>
+        <span class="label-title">Sealing a Bank Payment Request</span>
+      </div>
+      <div class="demo-video-frame">
+        <!-- Replace with your sealing demo video URL -->
+        <iframe
+          src="https://youtube.com/shorts/bhupZeMYqhw?si=W6whFeK1iqfmsFX5"
+          title="AlpenSign — Sealing a Bank Payment Request"
+          frameborder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowfullscreen
+        ></iframe>
+      </div>
+    </div>
+
   </div>
 </section>
 
