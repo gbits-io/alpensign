@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>AlpenSign — Demo Title</title>
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0d12;
+    --accent-light: #22c55e;
+    --accent: #1a5f3a;
+    --purple: #9945ff;
+    --text: #f0f0ec;
+    --text-secondary: #8a94a6;
+    --text-dim: #505868;
+    --border: rgba(255,255,255,0.08);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Source Sans 3', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+    overflow: hidden;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  /* Subtle grid bg */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(34,197,94,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(34,197,94,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+  }
+
+  /* Glow orb */
+  .orb {
+    position: fixed;
+    width: 500px;
+    height: 500px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(34,197,94,0.07) 0%, transparent 70%);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+
+  /* Slide wrapper */
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2.5rem 2rem;
+    transition: opacity 0.55s cubic-bezier(.4,0,.2,1), transform 0.55s cubic-bezier(.4,0,.2,1);
+  }
+
+  .slide.hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(20px);
+  }
+
+  .slide.visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+  }
+
+  /* Content card */
+  .card {
+    max-width: 400px;
+    width: 100%;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .logo {
+    width: 88px;
+    height: 88px;
+    margin-bottom: 1.8rem;
+  }
+
+  .logo-fallback {
+    width: 88px;
+    height: 88px;
+    margin-bottom: 1.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #1a5f3a, #22c55e);
+    border-radius: 22px;
+    font-size: 2.5rem;
+    display: none;
+  }
+
+  .app-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--accent-light);
+    margin-bottom: 1.4rem;
+  }
+
+  /* Part badge */
+  .part-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.45rem 1rem;
+    border-radius: 999px;
+    margin-bottom: 1.2rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .part-badge.part1 {
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.25);
+    color: var(--accent-light);
+  }
+
+  .part-badge.part2 {
+    background: rgba(153, 69, 255, 0.1);
+    border: 1px solid rgba(153, 69, 255, 0.25);
+    color: var(--purple);
+  }
+
+  .part-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    animation: pulse 2s ease infinite;
+  }
+
+  .part1 .part-dot { background: var(--accent-light); }
+  .part2 .part-dot { background: var(--purple); }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.75); }
+  }
+
+  /* Title */
+  .title-text {
+    font-size: 1.75rem;
+    font-weight: 800;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    margin-bottom: 2rem;
+  }
+
+  .title-text em {
+    font-style: normal;
+    display: block;
+    font-size: 1.55rem;
+    font-weight: 700;
+    margin-top: 0.3rem;
+  }
+
+  .title-text .highlight {
+    color: var(--accent-light);
+  }
+
+  .title-text .highlight-purple {
+    color: var(--purple);
+  }
+
+  /* Divider */
+  .divider {
+    width: 48px;
+    height: 2px;
+    margin-bottom: 2rem;
+    border-radius: 2px;
+  }
+
+  .divider.green { background: linear-gradient(90deg, transparent, var(--accent-light), transparent); }
+  .divider.purple { background: linear-gradient(90deg, transparent, var(--purple), transparent); }
+
+  /* Tap hint */
+  .tap-hint {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    animation: blink 3s ease infinite;
+  }
+
+  .tap-icon {
+    font-size: 0.85rem;
+    animation: tapBounce 3s ease infinite;
+  }
+
+  @keyframes blink {
+    0%, 80%, 100% { opacity: 0.5; }
+    40% { opacity: 1; }
+  }
+
+  @keyframes tapBounce {
+    0%, 80%, 100% { transform: scale(1); }
+    40% { transform: scale(1.2); }
+  }
+
+  /* Footer */
+  .footer-fixed {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    font-family: 'JetBrains Mono', monospace;
+    pointer-events: none;
+  }
+
+  /* Slide-in entrance animation */
+  .card > * {
+    opacity: 0;
+    animation: enterUp 0.6s ease forwards;
+  }
+  .card > *:nth-child(1) { animation-delay: 0.1s; }
+  .card > *:nth-child(2) { animation-delay: 0.2s; }
+  .card > *:nth-child(3) { animation-delay: 0.3s; }
+  .card > *:nth-child(4) { animation-delay: 0.4s; }
+  .card > *:nth-child(5) { animation-delay: 0.5s; }
+  .card > *:nth-child(6) { animation-delay: 0.6s; }
+
+  @keyframes enterUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Re-trigger animation on swap */
+  .slide.animating .card > * {
+    animation: enterUp 0.5s ease forwards;
+  }
+</style>
+</head>
+<body>
+
+<div class="orb"></div>
+
+<!-- Part 1 -->
+<div class="slide visible" id="slide1">
+  <div class="card">
+    <img src="./images/alpensign_logo_black_snow.png" alt="AlpenSign" class="logo"
+         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+    <div class="logo-fallback">🏔</div>
+    <div class="app-label">AlpenSign · Demo</div>
+    <div class="part-badge part1">
+      <span class="part-dot"></span>
+      Part 1 of 2
+    </div>
+    <div class="title-text">
+      Sealing a<br>
+      <em><span class="highlight">Bank Payment</span><br>Request</em>
+    </div>
+    <div class="divider green"></div>
+    <div class="tap-hint">
+      <span class="tap-icon">👆</span>
+      Tap to advance to Part 2
+    </div>
+  </div>
+</div>
+
+<!-- Part 2 -->
+<div class="slide hidden" id="slide2">
+  <div class="card">
+    <img src="./images/alpensign_logo_small_dark.png" alt="AlpenSign" class="logo"
+         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+    <div class="logo-fallback">🏔</div>
+    <div class="app-label">AlpenSign · Demo</div>
+    <div class="part-badge part2">
+      <span class="part-dot"></span>
+      Part 2 of 2
+    </div>
+    <div class="title-text">
+      Enrollment as a<br>
+      <em><span class="highlight-purple">Precondition</span></em>
+    </div>
+    <div class="divider purple"></div>
+    <div class="tap-hint">
+      <span class="tap-icon">👆</span>
+      Tap to return to Part 1
+    </div>
+  </div>
+</div>
+
+<div class="footer-fixed">Gbits.io · Zürich · BSL 1.1</div>
+
+<script>
+  let current = 1;
+
+  document.body.addEventListener('click', () => {
+    const from = document.getElementById('slide' + current);
+    current = current === 1 ? 2 : 1;
+    const to = document.getElementById('slide' + current);
+
+    from.classList.remove('visible');
+    from.classList.add('hidden');
+
+    to.classList.remove('hidden');
+    to.classList.add('visible', 'animating');
+
+    // Re-trigger child animations by cloning the card
+    const card = to.querySelector('.card');
+    const clone = card.cloneNode(true);
+    card.parentNode.replaceChild(clone, card);
+
+    setTimeout(() => to.classList.remove('animating'), 700);
+  });
+</script>
+
+</body>
+</html>
