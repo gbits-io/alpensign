@@ -29,7 +29,7 @@ const APP_IDENTITY = {
 // Set your key in config.js (not committed to git).
 const HELIUS_API_KEY = (typeof ALPENSIGN_CONFIG !== 'undefined' && ALPENSIGN_CONFIG.HELIUS_API_KEY)
   ? ALPENSIGN_CONFIG.HELIUS_API_KEY
-  : 'cf479a6e-8fe8-4363-ab5b-8898913fbaff';
+  : 'edb61d3d-c19b-43a5-b84d-b18f0fd7eb03';
 
 const NETWORKS = {
   mainnet: {
